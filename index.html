@@ -259,10 +259,10 @@
             </div>
             <div class="mt-4 space-y-2">
                 <p class="text-xs text-gray-500 italic">
-                    <strong>Unit Measurement:</strong> The coordinate system uses a 20×20 unit grid centered at origin (0,0), spanning from -10 to +10 units on both axes. Each unit represents 50 pixels on the 1000×1000 pixel canvas, providing a standardized scale for comparing sound object positions and sizes across different participants and frequencies.
+                    <strong>Unit Measurement:</strong> The coordinate system uses a 20×20 grid centered at origin (0,0), spanning from -10 to +10 units on both axes. Each grid square represents one unit of area measurement.
                 </p>
                 <p class="text-xs text-gray-500 italic">
-                    <strong>Area Calculation:</strong> Area is calculated in square units using the shoelace formula for polygon areas, where 1 unit² = 2,500 pixels².
+                    <strong>Area Calculation:</strong> Area is measured in grid squares, where each small box on the grid = 1 area unit. The total grid contains 400 squares (20×20).
                 </p>
             </div>
         </div>
@@ -584,7 +584,7 @@
                             <tr>
                                 <th class="px-3 py-2 text-left text-xs font-medium text-blue-700 uppercase">#</th>
                                 <th class="px-3 py-2 text-left text-xs font-medium text-blue-700 uppercase">Color</th>
-                                <th class="px-3 py-2 text-left text-xs font-medium text-blue-700 uppercase">Area (Units²)</th>
+                                <th class="px-3 py-2 text-left text-xs font-medium text-blue-700 uppercase">Area (Grid Squares)</th>
                                 <th class="px-3 py-2 text-left text-xs font-medium text-blue-700 uppercase">Centroid X</th>
                                 <th class="px-3 py-2 text-left text-xs font-medium text-blue-700 uppercase">Centroid Y</th>
                             </tr>
@@ -814,7 +814,7 @@
         function exportCSV() {
             const name = document.getElementById('participant-name').value || 'P-Anonymous';
             let csvContent = "data:text/csv;charset=utf-8,";
-            csvContent += "Participant,Frequency_Hz,Frequency_dB,Shape_ID,Color_Hex,Area_Unit,Centroid_X_Unit,Centroid_Y_Unit,Total_Points,Raw_Path_Coordinates\n";
+            csvContent += "Participant,Frequency_Hz,Frequency_dB,Shape_ID,Color_Hex,Area_Grid_Squares,Centroid_X,Centroid_Y,Total_Points,Raw_Path_Coordinates\n";
             
             for (const key in allFrequencyData) {
                 const freqInfo = frequencies.find(f => getFrequencyKey(f) === key);
