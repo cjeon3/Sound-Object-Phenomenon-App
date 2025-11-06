@@ -162,6 +162,10 @@
             <div id="frequency-tabs" class="flex flex-wrap gap-2"></div>
         </div>
         
+        <div id="canvas-container" class="bg-white rounded-xl shadow-2xl p-0.5 mb-6">
+            <canvas id="drawing-canvas"></canvas>
+        </div>
+        
         <div class="bg-white p-4 rounded-xl shadow-lg mb-6 flex flex-col space-y-4 border border-gray-100">
             <div class="flex flex-col sm:flex-row flex-wrap items-center gap-3 w-full">
                 <div class="w-full">
@@ -174,7 +178,7 @@
                         file:text-white
                         hover:file:from-blue-600 hover:file:to-blue-700
                         file:shadow-lg file:transition-all
-                        cursor-pointer w-full sm:w-auto
+                        cursor:pointer w-full sm:w-auto
                     "/>
                 </div>
             </div>
@@ -246,10 +250,6 @@
             </div>
         </div>
         
-        <div id="canvas-container" class="bg-white rounded-xl shadow-2xl p-0.5 mb-6">
-            <canvas id="drawing-canvas"></canvas>
-        </div>
-        
         <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-100 mb-6">
             <h2 class="text-2xl font-bold text-blue-700 mb-4">Sound Object Area and X,Y Coordinates</h2>
             <div id="results-table-container">
@@ -301,7 +301,8 @@
         const CANVAS_SIZE = 1000;
         const UNIT_RANGE = 10;
         const SCALE_FACTOR = CANVAS_SIZE / (UNIT_RANGE * 2);
-        const BACKGROUND_CIRCLE_RADIUS_UNITS = 3; // <-- ADDED CONSTANT
+        // Circle Radius set to 3 units as requested
+        const BACKGROUND_CIRCLE_RADIUS_UNITS = 3; 
 
         const frequencies = [
             { hz: 31, db: 100 }, { hz: 62.5, db: 100 }, { hz: 125, db: 90 },
@@ -415,10 +416,10 @@
 
         // Drawing functions
         
-        // <-- ADDED FUNCTION: Draws a circle with a radius of 3 units
+        // Draws a circle with a radius of 3 units, always in the background
         function drawBackgroundCircle() {
             const center = CANVAS_SIZE / 2;
-            // Calculate radius in pixels: 3 units * SCALE_FACTOR (50 pixels/unit) = 150 pixels
+            // Radius in pixels: 3 units * SCALE_FACTOR (50 pixels/unit) = 150 pixels
             const radiusPixels = BACKGROUND_CIRCLE_RADIUS_UNITS * SCALE_FACTOR; 
             
             ctx.save();
@@ -426,7 +427,7 @@
             ctx.beginPath();
             ctx.arc(center, center, radiusPixels, 0, 2 * Math.PI);
             
-            // Use a subtle color for the background element
+            // Subtle color for the background element
             ctx.strokeStyle = '#9ca3af'; // Same as axis color
             ctx.lineWidth = 2;
             
@@ -434,8 +435,7 @@
             
             ctx.restore();
         }
-        // END ADDED FUNCTION -->
-
+        
         function drawGrid() {
             const center = CANVAS_SIZE / 2;
             const gridColor = '#e5e7eb';
@@ -545,7 +545,7 @@
                 ctx.drawImage(backgroundImage, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
             }
             
-            // <-- MODIFIED LINE: Draw the background circle first (in the background)
+            // Draw the background circle first
             drawBackgroundCircle(); 
             
             drawGrid();
