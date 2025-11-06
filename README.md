@@ -1,7 +1,7 @@
 # Sound Object Phenomenon - Research Tool
 **UCI Hearing & Speech Lab**
 
-## 📊 Overview
+## Overview
 
 The Sound Object Phenomenon tool is a Progressive Web App (PWA) designed for acoustic perception research. It enables researchers to study how people visualize sound frequencies by allowing participants to draw shapes in response to different frequency stimuli. The tool automatically calculates geometric properties of drawn shapes including area and centroid coordinates, providing quantitative data for analyzing sound-shape associations.
 
@@ -24,7 +24,7 @@ The Sound Object Phenomenon tool is a Progressive Web App (PWA) designed for aco
 
 ---
 
-## 🚀 Quick Start Installation Guide
+## Quick Start Installation Guide
 
 ### For Researchers (Initial Setup)
 
@@ -74,7 +74,7 @@ The Sound Object Phenomenon tool is a Progressive Web App (PWA) designed for aco
 
 ---
 
-## 📁 Required Files
+## Required Files
 
 Before deployment, ensure you have these 5 files:
 
@@ -92,7 +92,7 @@ The provided icons are in SVG format and must be converted to PNG:
 
 ---
 
-## ✅ Deployment Checklist
+## Deployment Checklist
 
 ### Pre-Deployment
 - [ ] Convert icon-192.svg → icon-192.png
@@ -125,7 +125,7 @@ The provided icons are in SVG format and must be converted to PNG:
 
 ---
 
-## 🔧 Technical Specifications
+## Technical Specifications
 
 ### Coordinate System
 - **Grid**: 20×20 units centered at origin (0,0)
@@ -156,7 +156,7 @@ The provided icons are in SVG format and must be converted to PNG:
 
 ---
 
-## 📝 Usage Instructions
+## Usage Instructions
 
 ### Running a Study Session
 
@@ -191,7 +191,7 @@ The provided icons are in SVG format and must be converted to PNG:
 
 ---
 
-## 🛟 Troubleshooting
+## Troubleshooting
 
 ### App Won't Install
 - Ensure using correct browser (Safari on iOS, Chrome on Android)
@@ -217,7 +217,7 @@ The provided icons are in SVG format and must be converted to PNG:
 
 ---
 
-## 🔒 Privacy & Data
+## Privacy & Data
 
 - All drawing data stored locally on device
 - No automatic data transmission
@@ -227,7 +227,7 @@ The provided icons are in SVG format and must be converted to PNG:
 
 ---
 
-## 📄 License & Citation
+## License & Citation
 
 This tool was developed by the UCI Hearing & Speech Lab for acoustic perception research.
 ```
