@@ -72,6 +72,9 @@ The Sound Object Phenomenon tool is a Progressive Web App (PWA) designed for aco
 2. Go to the provided URL
 3. Click menu → Apps → **"Install this site as an app"**
 
+The URL to export to Google Sheets is:
+https://script.google.com/macros/s/AKfycbyFk4EqGao693vTOkWCrYffJHJxFC5uI9SbLo92hFPy-JMzxIZUBSIWV0tOwKngOlU9bA/exec
+
 ---
 
 ## Required Files
@@ -122,6 +125,7 @@ The provided icons are in SVG format and must be converted to PNG:
 - [ ] Set up Google Apps Script (see separate guide)
 - [ ] Test data export to sheets
 - [ ] Save script URL in app
+https://script.google.com/macros/s/AKfycbyFk4EqGao693vTOkWCrYffJHJxFC5uI9SbLo92hFPy-JMzxIZUBSIWV0tOwKngOlU9bA/exec
 
 ---
 
