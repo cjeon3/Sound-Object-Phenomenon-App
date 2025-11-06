@@ -16,6 +16,10 @@
     <link rel="apple-touch-icon" href="icon-192.png">
     
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    
     <style>
         * {
             -webkit-tap-highlight-color: transparent;
@@ -201,8 +205,8 @@
                     Redo
                 </button>
                 
-                <button id="upload-to-drive" class="w-full sm:w-auto px-6 py-2.5 rounded-xl font-bold text-sm transition-all bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 shadow-lg hover:shadow-xl">
-                    📁 Upload to Drive
+                <button id="download-all-zip" class="w-full sm:w-auto px-6 py-2.5 rounded-xl font-bold text-sm transition-all bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 shadow-lg hover:shadow-xl">
+                    ⬇️ Download All Drawings (ZIP)
                 </button>
                 
                 <button id="export-csv" class="w-full sm:w-auto px-6 py-2.5 rounded-xl font-bold text-sm transition-all bg-gradient-to-r from-teal-500 to-teal-600 text-white hover:from-teal-600 hover:to-teal-700 shadow-lg hover:shadow-xl">
@@ -248,36 +252,6 @@
             <div id="status-message" class="text-sm font-medium text-gray-500 w-full text-center md:text-left pt-2 border-t border-gray-100">
                 Status: Ready
             </div>
-        </div>
-        
-        <div class="bg-gradient-to-r from-purple-50 to-indigo-50 p-6 rounded-xl shadow-lg border-2 border-purple-200 mb-6">
-            <h3 class="text-xl font-bold text-purple-800 mb-3 flex items-center gap-2">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-                </svg>
-                Google Drive Upload Settings
-            </h3>
-            <p class="text-sm text-gray-700 mb-4">
-                Upload all frequency images to a folder in Google Drive. Enter your Google Apps Script URL below.
-            </p>
-            
-            <div class="flex flex-col sm:flex-row gap-3">
-                <input 
-                    type="url" 
-                    id="drive-url-input" 
-                    placeholder="https://script.google.com/macros/s/..." 
-                    class="flex-1 px-4 py-3 text-sm border-2 border-purple-300 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-all"
-                    value="">
-                
-                <button id="save-drive-url" class="px-6 py-3 rounded-xl font-bold text-sm transition-all bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 shadow-lg hover:shadow-xl whitespace-nowrap">
-                    Save URL
-                </button>
-            </div>
-            
-            <p class="mt-3 text-xs text-gray-600 italic">
-                💡 Tip: Save your URL once and it will be remembered for all uploads. 
-                <a href="#" id="clear-drive-url" class="text-purple-700 hover:text-purple-900 underline font-semibold">Clear saved URL</a>
-            </p>
         </div>
         
         <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-100 mb-6">
@@ -729,24 +703,15 @@
             return tempCanvas.toDataURL('image/png');
         }
         
-        // Upload all images to Google Drive
-        async function uploadToGoogleDrive() {
-            const participantName = document.getElementById('participant-name').value.trim();
-            if (!participantName) {
-                alert('Please enter a participant name before uploading.');
+        // MODIFIED: Function to download all drawings as a ZIP file
+        function downloadAllImagesAsZip() {
+            // Check for JSZip and FileSaver dependency
+            if (typeof JSZip === 'undefined' || typeof saveAs === 'undefined') {
+                alert('ZIP functionality libraries are not loaded correctly.');
                 return;
             }
-            
-            // Get saved URL or prompt for it
-            let driveUrl = document.getElementById('drive-url-input').value.trim();
-            if (!driveUrl) {
-                driveUrl = localStorage.getItem('driveUploadUrl') || '';
-                if (!driveUrl) {
-                    alert('Please enter your Google Apps Script URL in the settings above.');
-                    document.getElementById('drive-url-input').focus();
-                    return;
-                }
-            }
+
+            const participantName = document.getElementById('participant-name').value.trim() || 'P-Anonymous';
             
             // Check if we have any drawings
             let hasDrawings = false;
@@ -758,66 +723,52 @@
             }
             
             if (!hasDrawings) {
-                alert('No drawings to upload. Please draw shapes for at least one frequency.');
+                alert('No drawings found. Please draw shapes for at least one frequency to create a zip file.');
                 return;
             }
             
-            document.getElementById('status-message').textContent = 'Status: Preparing images for upload...';
+            document.getElementById('status-message').textContent = 'Status: Generating ZIP file...';
             
-            // Generate images for all frequencies with drawings
-            const images = [];
+            const zip = new JSZip();
+            const folderName = `${participantName}_SoundObjectDrawings_${Date.now()}`;
+            const folder = zip.folder(folderName);
+            
+            let filesAdded = 0;
+
             for (const freq of frequencies) {
                 const key = getFrequencyKey(freq);
                 if (allFrequencyData[key].length > 0) {
                     const dataURL = generateImageForFrequency(freq);
                     const filename = `${participantName}_${freq.hz}Hz_${freq.db}dB.png`;
-                    images.push({ filename, dataURL });
+                    // Data URL is in the format: data:image/png;base64,iVBORw0KGgo...
+                    const base64Data = dataURL.split(',')[1];
+                    
+                    folder.file(filename, base64Data, { base64: true });
+                    filesAdded++;
                 }
             }
             
-            if (images.length === 0) {
-                alert('No drawings found to upload.');
-                return;
+            // This check should not be strictly necessary given the initial check, but good for safety
+            if (filesAdded === 0) {
+                 document.getElementById('status-message').textContent = 'Status: No drawings found to zip.';
+                 alert('No drawings found to create a zip file.');
+                 return;
             }
             
-            document.getElementById('status-message').textContent = `Status: Uploading ${images.length} images to Google Drive...`;
-            
-            try {
-                const response = await fetch(driveUrl, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        participant: participantName,
-                        images: images
-                    })
+            // Generate the ZIP file
+            zip.generateAsync({ type: "blob" })
+                .then(function(content) {
+                    // Use FileSaver.js to save the file
+                    saveAs(content, `${participantName}_Drawings.zip`);
+                    document.getElementById('status-message').textContent = `Status: Successfully generated and downloaded ${filesAdded} images in a ZIP file!`;
+                })
+                .catch(error => {
+                    console.error('ZIP generation error:', error);
+                    document.getElementById('status-message').textContent = 'Status: ZIP generation failed';
+                    alert('An error occurred during ZIP file generation. Check console for details.');
                 });
-                
-                const result = await response.json();
-                
-                if (result.status === 'success') {
-                    document.getElementById('status-message').textContent = `Status: Successfully uploaded ${images.length} images to Google Drive!`;
-                    
-                    // Show success message with folder link
-                    const message = `✅ Successfully uploaded ${images.length} images!\n\n` +
-                                  `Folder: ${result.folderName}\n\n` +
-                                  `Would you like to open the folder in Google Drive?`;
-                    
-                    if (confirm(message)) {
-                        window.open(result.folderUrl, '_blank');
-                    }
-                } else {
-                    throw new Error(result.message || 'Upload failed');
-                }
-                
-            } catch (error) {
-                console.error('Upload error:', error);
-                document.getElementById('status-message').textContent = 'Status: Upload failed';
-                alert(`Upload failed: ${error.message}\n\nPlease check your Web App URL and permissions.`);
-            }
         }
-
+        
         function redrawCanvas() {
             const shapes = getCurrentShapes();
             ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
@@ -1169,6 +1120,7 @@
 
             try {
                 document.getElementById('status-message').textContent = 'Status: Exporting to Google Sheets...';
+                // Using fetch with no-cors mode, expecting success but may not get response details
                 await fetch(sheetsUrl, {
                     method: 'POST',
                     mode: 'no-cors',
@@ -1177,11 +1129,11 @@
                 });
 
                 document.getElementById('status-message').textContent = 'Status: Data exported successfully!';
-                alert('Data exported successfully to Google Sheets!');
+                alert('Data exported successfully to Google Sheets! (Check your sheet in a moment)');
             } catch (error) {
                 console.error('Export error:', error);
                 document.getElementById('status-message').textContent = 'Status: Export failed';
-                alert('Export failed. Please check your Web App URL and try again.');
+                alert('Export failed. Please check your Web App URL and ensure CORS is configured for POST requests.');
             }
         }
 
@@ -1245,15 +1197,10 @@
         window.onload = function() {
             initializeCanvas();
             
-            // Load saved URLs if they exist
+            // Load saved URL if it exists
             const savedSheetsUrl = localStorage.getItem('sheetsUrl');
             if (savedSheetsUrl) {
                 document.getElementById('sheets-url-input').value = savedSheetsUrl;
-            }
-            
-            const savedDriveUrl = localStorage.getItem('driveUploadUrl');
-            if (savedDriveUrl) {
-                document.getElementById('drive-url-input').value = savedDriveUrl;
             }
             
             // Register service worker for PWA functionality
@@ -1310,26 +1257,12 @@
             document.getElementById('undo-button').addEventListener('click', undo);
             document.getElementById('redo-button').addEventListener('click', redo);
             document.getElementById('image-upload').addEventListener('change', handleImageUpload);
-            document.getElementById('upload-to-drive').addEventListener('click', uploadToGoogleDrive);
+            
+            // NEW EVENT LISTENER: Download all drawings as ZIP
+            document.getElementById('download-all-zip').addEventListener('click', downloadAllImagesAsZip);
+            
             document.getElementById('export-csv').addEventListener('click', exportCSV);
             document.getElementById('export-sheets-btn').addEventListener('click', exportToGoogleSheets);
-            
-            document.getElementById('save-drive-url').addEventListener('click', () => {
-                const url = document.getElementById('drive-url-input').value.trim();
-                if (url) {
-                    localStorage.setItem('driveUploadUrl', url);
-                    document.getElementById('status-message').textContent = 'Status: Google Drive URL saved successfully';
-                } else {
-                    alert('Please enter a valid URL');
-                }
-            });
-            
-            document.getElementById('clear-drive-url').addEventListener('click', (e) => {
-                e.preventDefault();
-                localStorage.removeItem('driveUploadUrl');
-                document.getElementById('drive-url-input').value = '';
-                document.getElementById('status-message').textContent = 'Status: Google Drive URL cleared';
-            });
             
             document.getElementById('reset-all').addEventListener('click', () => {
                 const confirmMessage = `⚠️ WARNING: This will reset EVERYTHING including:
