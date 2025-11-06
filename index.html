@@ -201,8 +201,8 @@
                     Redo
                 </button>
                 
-                <button id="download-image" class="w-full sm:w-auto px-6 py-2.5 rounded-xl font-bold text-sm transition-all bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 shadow-lg hover:shadow-xl">
-                    Download PNG
+                <button id="upload-to-drive" class="w-full sm:w-auto px-6 py-2.5 rounded-xl font-bold text-sm transition-all bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 shadow-lg hover:shadow-xl">
+                    📁 Upload to Drive
                 </button>
                 
                 <button id="export-csv" class="w-full sm:w-auto px-6 py-2.5 rounded-xl font-bold text-sm transition-all bg-gradient-to-r from-teal-500 to-teal-600 text-white hover:from-teal-600 hover:to-teal-700 shadow-lg hover:shadow-xl">
@@ -248,6 +248,36 @@
             <div id="status-message" class="text-sm font-medium text-gray-500 w-full text-center md:text-left pt-2 border-t border-gray-100">
                 Status: Ready
             </div>
+        </div>
+        
+        <div class="bg-gradient-to-r from-purple-50 to-indigo-50 p-6 rounded-xl shadow-lg border-2 border-purple-200 mb-6">
+            <h3 class="text-xl font-bold text-purple-800 mb-3 flex items-center gap-2">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                </svg>
+                Google Drive Upload Settings
+            </h3>
+            <p class="text-sm text-gray-700 mb-4">
+                Upload all frequency images to a folder in Google Drive. Enter your Google Apps Script URL below.
+            </p>
+            
+            <div class="flex flex-col sm:flex-row gap-3">
+                <input 
+                    type="url" 
+                    id="drive-url-input" 
+                    placeholder="https://script.google.com/macros/s/..." 
+                    class="flex-1 px-4 py-3 text-sm border-2 border-purple-300 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-all"
+                    value="">
+                
+                <button id="save-drive-url" class="px-6 py-3 rounded-xl font-bold text-sm transition-all bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 shadow-lg hover:shadow-xl whitespace-nowrap">
+                    Save URL
+                </button>
+            </div>
+            
+            <p class="mt-3 text-xs text-gray-600 italic">
+                💡 Tip: Save your URL once and it will be remembered for all uploads. 
+                <a href="#" id="clear-drive-url" class="text-purple-700 hover:text-purple-900 underline font-semibold">Clear saved URL</a>
+            </p>
         </div>
         
         <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-100 mb-6">
@@ -536,6 +566,257 @@
             
             ctx.restore();
         }
+        
+        // Helper function to draw grid on any context
+        function drawGridOnContext(context) {
+            const center = CANVAS_SIZE / 2;
+            const gridColor = '#e5e7eb';
+            const axisColor = '#9ca3af';
+            const labelColor = '#6b7280';
+            
+            context.save();
+            context.strokeStyle = gridColor;
+            context.lineWidth = 1;
+            
+            // Draw grid lines
+            for (let i = -UNIT_RANGE + 1; i < UNIT_RANGE; i++) {
+                const coord = unitToCanvas(i, i);
+                
+                if (i !== 0) {
+                    context.beginPath();
+                    context.moveTo(0, coord.y);
+                    context.lineTo(CANVAS_SIZE, coord.y);
+                    context.stroke();
+                    
+                    context.beginPath();
+                    context.moveTo(coord.x, 0);
+                    context.lineTo(coord.x, CANVAS_SIZE);
+                    context.stroke();
+                }
+            }
+            
+            // Draw axes
+            context.strokeStyle = axisColor;
+            context.lineWidth = 2;
+            
+            context.beginPath();
+            context.moveTo(0, center);
+            context.lineTo(CANVAS_SIZE, center);
+            context.stroke();
+
+            context.beginPath();
+            context.moveTo(center, 0);
+            context.lineTo(center, CANVAS_SIZE);
+            context.stroke();
+
+            // Draw labels
+            context.fillStyle = labelColor;
+            context.font = 'bold 14px sans-serif';
+            context.textAlign = 'center';
+            context.textBaseline = 'middle';
+            
+            for (let i = -UNIT_RANGE; i <= UNIT_RANGE; i += 2) {
+                if (i === 0) continue;
+                const coord = unitToCanvas(i, 0);
+                context.fillText(i.toString(), coord.x, center + 20);
+            }
+            
+            context.textAlign = 'left';
+            for (let j = -UNIT_RANGE; j <= UNIT_RANGE; j += 2) {
+                if (j === 0) continue;
+                const coord = unitToCanvas(0, j);
+                context.fillText(j.toString(), center + 8, coord.y);
+            }
+            
+            context.textAlign = 'right';
+            context.fillText('0', center - 8, center + 20);
+
+            // Draw center point
+            context.fillStyle = '#1e40af';
+            context.beginPath();
+            context.arc(center, center, 5, 0, Math.PI * 2);
+            context.fill();
+
+            context.restore();
+        }
+        
+        // Helper function to draw centroid marker on any context
+        function drawCentroidMarkerOnContext(context, centroidX, centroidY, color) {
+            const pos = unitToCanvas(centroidX, centroidY);
+            const markerSize = 12;
+            
+            context.save();
+            context.strokeStyle = color;
+            context.lineWidth = 3;
+            context.lineCap = 'round';
+            
+            // Draw cross
+            context.beginPath();
+            context.moveTo(pos.x - markerSize, pos.y);
+            context.lineTo(pos.x + markerSize, pos.y);
+            context.stroke();
+            
+            context.beginPath();
+            context.moveTo(pos.x, pos.y - markerSize);
+            context.lineTo(pos.x, pos.y + markerSize);
+            context.stroke();
+            
+            // Draw circle
+            context.lineWidth = 2;
+            context.beginPath();
+            context.arc(pos.x, pos.y, markerSize + 2, 0, Math.PI * 2);
+            context.stroke();
+            
+            context.restore();
+        }
+        
+        // Generate image for a specific frequency
+        function generateImageForFrequency(freq) {
+            const key = getFrequencyKey(freq);
+            const shapes = allFrequencyData[key];
+            
+            // Create a temporary canvas for this frequency
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = CANVAS_SIZE;
+            tempCanvas.height = CANVAS_SIZE;
+            const tempCtx = tempCanvas.getContext('2d');
+            
+            // White background
+            tempCtx.fillStyle = '#ffffff';
+            tempCtx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+            
+            // Draw background image if exists
+            if (backgroundImage) {
+                tempCtx.drawImage(backgroundImage, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
+            }
+            
+            // Draw the background circle
+            const center = CANVAS_SIZE / 2;
+            const radiusPixels = BACKGROUND_CIRCLE_RADIUS_UNITS * SCALE_FACTOR;
+            tempCtx.save();
+            tempCtx.beginPath();
+            tempCtx.arc(center, center, radiusPixels, 0, 2 * Math.PI);
+            tempCtx.strokeStyle = '#9ca3af';
+            tempCtx.lineWidth = 2;
+            tempCtx.stroke();
+            tempCtx.restore();
+            
+            // Draw grid
+            drawGridOnContext(tempCtx);
+            
+            // Draw shapes for this frequency
+            shapes.forEach(path => {
+                if (path.length < 2) return;
+                
+                tempCtx.beginPath();
+                tempCtx.lineJoin = 'round';
+                tempCtx.lineCap = 'round';
+                tempCtx.moveTo(path[0].x, path[0].y);
+
+                for (let i = 1; i < path.length; i++) {
+                    const p = path[i];
+                    tempCtx.lineWidth = p.size;
+                    tempCtx.strokeStyle = p.color;
+                    tempCtx.lineTo(p.x, p.y);
+                }
+                tempCtx.stroke();
+                
+                // Draw centroid marker
+                const { x, y } = calculateCentroid(path);
+                drawCentroidMarkerOnContext(tempCtx, x, y, path[0].color);
+            });
+            
+            return tempCanvas.toDataURL('image/png');
+        }
+        
+        // Upload all images to Google Drive
+        async function uploadToGoogleDrive() {
+            const participantName = document.getElementById('participant-name').value.trim();
+            if (!participantName) {
+                alert('Please enter a participant name before uploading.');
+                return;
+            }
+            
+            // Get saved URL or prompt for it
+            let driveUrl = document.getElementById('drive-url-input').value.trim();
+            if (!driveUrl) {
+                driveUrl = localStorage.getItem('driveUploadUrl') || '';
+                if (!driveUrl) {
+                    alert('Please enter your Google Apps Script URL in the settings above.');
+                    document.getElementById('drive-url-input').focus();
+                    return;
+                }
+            }
+            
+            // Check if we have any drawings
+            let hasDrawings = false;
+            for (const key in allFrequencyData) {
+                if (allFrequencyData[key].length > 0) {
+                    hasDrawings = true;
+                    break;
+                }
+            }
+            
+            if (!hasDrawings) {
+                alert('No drawings to upload. Please draw shapes for at least one frequency.');
+                return;
+            }
+            
+            document.getElementById('status-message').textContent = 'Status: Preparing images for upload...';
+            
+            // Generate images for all frequencies with drawings
+            const images = [];
+            for (const freq of frequencies) {
+                const key = getFrequencyKey(freq);
+                if (allFrequencyData[key].length > 0) {
+                    const dataURL = generateImageForFrequency(freq);
+                    const filename = `${participantName}_${freq.hz}Hz_${freq.db}dB.png`;
+                    images.push({ filename, dataURL });
+                }
+            }
+            
+            if (images.length === 0) {
+                alert('No drawings found to upload.');
+                return;
+            }
+            
+            document.getElementById('status-message').textContent = `Status: Uploading ${images.length} images to Google Drive...`;
+            
+            try {
+                const response = await fetch(driveUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        participant: participantName,
+                        images: images
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    document.getElementById('status-message').textContent = `Status: Successfully uploaded ${images.length} images to Google Drive!`;
+                    
+                    // Show success message with folder link
+                    const message = `✅ Successfully uploaded ${images.length} images!\n\n` +
+                                  `Folder: ${result.folderName}\n\n` +
+                                  `Would you like to open the folder in Google Drive?`;
+                    
+                    if (confirm(message)) {
+                        window.open(result.folderUrl, '_blank');
+                    }
+                } else {
+                    throw new Error(result.message || 'Upload failed');
+                }
+                
+            } catch (error) {
+                console.error('Upload error:', error);
+                document.getElementById('status-message').textContent = 'Status: Upload failed';
+                alert(`Upload failed: ${error.message}\n\nPlease check your Web App URL and permissions.`);
+            }
+        }
 
         function redrawCanvas() {
             const shapes = getCurrentShapes();
@@ -810,30 +1091,6 @@
             }
         }
 
-        function downloadImage() {
-            const name = document.getElementById('participant-name').value || 'P-Anonymous';
-            const filename = `${name}_${getFrequencyKey(currentFrequency)}_drawing.png`;
-            
-            const exportCanvas = document.createElement('canvas');
-            exportCanvas.width = CANVAS_SIZE;
-            exportCanvas.height = CANVAS_SIZE;
-            const exportCtx = exportCanvas.getContext('2d');
-            
-            exportCtx.fillStyle = '#ffffff';
-            exportCtx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
-            exportCtx.drawImage(canvas, 0, 0);
-
-            const dataURL = exportCanvas.toDataURL('image/png');
-            const a = document.createElement('a');
-            a.href = dataURL;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            
-            document.getElementById('status-message').textContent = 'Status: Drawing downloaded as PNG';
-        }
-
         function exportCSV() {
             const name = document.getElementById('participant-name').value || 'P-Anonymous';
             let csvContent = "data:text/csv;charset=utf-8,";
@@ -988,10 +1245,15 @@
         window.onload = function() {
             initializeCanvas();
             
-            // Load saved URL if it exists
-            const savedUrl = localStorage.getItem('sheetsUrl');
-            if (savedUrl) {
-                document.getElementById('sheets-url-input').value = savedUrl;
+            // Load saved URLs if they exist
+            const savedSheetsUrl = localStorage.getItem('sheetsUrl');
+            if (savedSheetsUrl) {
+                document.getElementById('sheets-url-input').value = savedSheetsUrl;
+            }
+            
+            const savedDriveUrl = localStorage.getItem('driveUploadUrl');
+            if (savedDriveUrl) {
+                document.getElementById('drive-url-input').value = savedDriveUrl;
             }
             
             // Register service worker for PWA functionality
@@ -1048,9 +1310,26 @@
             document.getElementById('undo-button').addEventListener('click', undo);
             document.getElementById('redo-button').addEventListener('click', redo);
             document.getElementById('image-upload').addEventListener('change', handleImageUpload);
-            document.getElementById('download-image').addEventListener('click', downloadImage);
+            document.getElementById('upload-to-drive').addEventListener('click', uploadToGoogleDrive);
             document.getElementById('export-csv').addEventListener('click', exportCSV);
             document.getElementById('export-sheets-btn').addEventListener('click', exportToGoogleSheets);
+            
+            document.getElementById('save-drive-url').addEventListener('click', () => {
+                const url = document.getElementById('drive-url-input').value.trim();
+                if (url) {
+                    localStorage.setItem('driveUploadUrl', url);
+                    document.getElementById('status-message').textContent = 'Status: Google Drive URL saved successfully';
+                } else {
+                    alert('Please enter a valid URL');
+                }
+            });
+            
+            document.getElementById('clear-drive-url').addEventListener('click', (e) => {
+                e.preventDefault();
+                localStorage.removeItem('driveUploadUrl');
+                document.getElementById('drive-url-input').value = '';
+                document.getElementById('status-message').textContent = 'Status: Google Drive URL cleared';
+            });
             
             document.getElementById('reset-all').addEventListener('click', () => {
                 const confirmMessage = `⚠️ WARNING: This will reset EVERYTHING including:
