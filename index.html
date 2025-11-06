@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Sound Object Visualization Research Tool</title>
     
-    <!-- PWA Meta Tags -->
     <link rel="manifest" href="manifest.json">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -14,7 +13,6 @@
     <meta name="theme-color" content="#1e40af">
     <meta name="description" content="Draw and analyze perceived sound shapes for acoustic research">
     
-    <!-- iOS Icons -->
     <link rel="apple-touch-icon" href="icon-192.png">
     
     <script src="https://cdn.tailwindcss.com"></script>
@@ -267,7 +265,6 @@
             </div>
         </div>
         
-        <!-- Google Sheets Export Section -->
         <div class="bg-gradient-to-r from-emerald-50 to-teal-50 p-6 rounded-xl shadow-lg border-2 border-emerald-200">
             <h3 class="text-xl font-bold text-emerald-800 mb-3 flex items-center gap-2">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -304,7 +301,8 @@
         const CANVAS_SIZE = 1000;
         const UNIT_RANGE = 10;
         const SCALE_FACTOR = CANVAS_SIZE / (UNIT_RANGE * 2);
-        
+        const BACKGROUND_CIRCLE_RADIUS_UNITS = 3; // <-- ADDED CONSTANT
+
         const frequencies = [
             { hz: 31, db: 100 }, { hz: 62.5, db: 100 }, { hz: 125, db: 90 },
             { hz: 250, db: 85 }, { hz: 500, db: 80 }, { hz: 1000, db: 80 },
@@ -416,6 +414,28 @@
         }
 
         // Drawing functions
+        
+        // <-- ADDED FUNCTION: Draws a circle with a radius of 3 units
+        function drawBackgroundCircle() {
+            const center = CANVAS_SIZE / 2;
+            // Calculate radius in pixels: 3 units * SCALE_FACTOR (50 pixels/unit) = 150 pixels
+            const radiusPixels = BACKGROUND_CIRCLE_RADIUS_UNITS * SCALE_FACTOR; 
+            
+            ctx.save();
+            
+            ctx.beginPath();
+            ctx.arc(center, center, radiusPixels, 0, 2 * Math.PI);
+            
+            // Use a subtle color for the background element
+            ctx.strokeStyle = '#9ca3af'; // Same as axis color
+            ctx.lineWidth = 2;
+            
+            ctx.stroke();
+            
+            ctx.restore();
+        }
+        // END ADDED FUNCTION -->
+
         function drawGrid() {
             const center = CANVAS_SIZE / 2;
             const gridColor = '#e5e7eb';
@@ -524,6 +544,9 @@
             if (backgroundImage) {
                 ctx.drawImage(backgroundImage, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
             }
+            
+            // <-- MODIFIED LINE: Draw the background circle first (in the background)
+            drawBackgroundCircle(); 
             
             drawGrid();
 
