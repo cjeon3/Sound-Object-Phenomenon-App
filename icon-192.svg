@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
+  <!-- Background -->
+  <rect width="192" height="192" rx="40" fill="#1e40af"/>
+  
+  <!-- Sound wave visualization -->
+  <g transform="translate(96, 96)">
+    <!-- Center circle -->
+    <circle cx="0" cy="0" r="8" fill="#ffffff"/>
+    
+    <!-- Sound waves -->
+    <path d="M -40,-30 Q -20,-15 0,-30 T 40,-30" stroke="#ffffff" stroke-width="4" fill="none" opacity="0.9"/>
+    <path d="M -40,0 Q -20,15 0,0 T 40,0" stroke="#ffffff" stroke-width="4" fill="none" opacity="0.9"/>
+    <path d="M -40,30 Q -20,15 0,30 T 40,30" stroke="#ffffff" stroke-width="4" fill="none" opacity="0.9"/>
+    
+    <!-- Grid dots -->
+    <circle cx="-50" cy="-50" r="2" fill="#ffffff" opacity="0.5"/>
+    <circle cx="50" cy="-50" r="2" fill="#ffffff" opacity="0.5"/>
+    <circle cx="-50" cy="50" r="2" fill="#ffffff" opacity="0.5"/>
+    <circle cx="50" cy="50" r="2" fill="#ffffff" opacity="0.5"/>
+  </g>
+  
+  <!-- Text -->
+  <text x="96" y="160" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="middle">SOUND VIZ</text>
+</svg>
