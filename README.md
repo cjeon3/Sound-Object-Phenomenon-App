@@ -128,10 +128,10 @@ The provided icons are in SVG format and must be converted to PNG:
 ## Technical Specifications
 
 ### Coordinate System
-- **Grid**: 20×20 units centered at origin (0,0)
+- **Grid**: 20×20 grid squares centered at origin (0,0)
 - **Range**: -10 to +10 on both X and Y axes
-- **Scale**: 1 unit = 50 pixels (on 1000×1000px canvas)
-- **Area**: Measured in square units (1 unit² = 2,500 pixels²)
+- **Scale**: 1 grid square = 1 area unit
+- **Area**: Measured in grid squares (total grid = 400 squares)
 - **Calculation**: Shoelace formula for polygon areas
 
 ### Supported Frequencies
@@ -217,7 +217,7 @@ The provided icons are in SVG format and must be converted to PNG:
 
 ---
 
-## Privacy & Data
+## 🔒 Privacy & Data
 
 - All drawing data stored locally on device
 - No automatic data transmission
@@ -225,12 +225,6 @@ The provided icons are in SVG format and must be converted to PNG:
 - No personal information collected beyond participant ID
 - Compliant with research data protocols
 
----
-
-## License & Citation
-
-This tool was developed by the UCI Hearing & Speech Lab for acoustic perception research.
-```
 
 ---
 
