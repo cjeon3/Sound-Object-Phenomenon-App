@@ -221,16 +221,6 @@ https://script.google.com/macros/s/AKfycbyFk4EqGao693vTOkWCrYffJHJxFC5uI9SbLo92h
 
 ---
 
-## Privacy & Data
-
-- All drawing data stored locally on device
-- No automatic data transmission
-- Participant controls all data export
-- No personal information collected beyond participant ID
-- Compliant with research data protocols
-
----
-
 ## License & Citation
 
 This tool was developed by the UCI Hearing & Speech Lab for acoustic perception research.
