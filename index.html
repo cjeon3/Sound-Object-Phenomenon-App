@@ -703,7 +703,30 @@
             return tempCanvas.toDataURL('image/png');
         }
         
-        // MODIFIED: Function to download all drawings as a ZIP file
+        // NEW FUNCTION: Manages the chronological count for a participant
+        function getAndIncrementParticipantExportCount(participantName) {
+            // If no name is provided, default to '01' and do not save
+            if (!participantName || participantName === 'P-Anonymous') {
+                return '01';
+            }
+
+            // Sanitize key for localStorage
+            const storageKey = `exportCount_${participantName.replace(/[^a-zA-Z0-9]/g, '_')}`;
+            
+            // Get current count (or 0 if not found)
+            let currentCount = parseInt(localStorage.getItem(storageKey) || '0');
+            
+            // Increment for the current export
+            const newCount = currentCount + 1;
+            
+            // Save the new count
+            localStorage.setItem(storageKey, newCount.toString());
+            
+            // Return the formatted new count (e.g., 1 -> '01', 12 -> '12')
+            return String(newCount).padStart(2, '0');
+        }
+
+        // MODIFIED: Function to download all drawings as a ZIP file with chronological naming
         function downloadAllImagesAsZip() {
             // Check for JSZip and FileSaver dependency
             if (typeof JSZip === 'undefined' || typeof saveAs === 'undefined') {
@@ -727,10 +750,14 @@
                 return;
             }
             
+            // GET AND INCREMENT CHRONOLOGICAL COUNT
+            const chronologicalCount = getAndIncrementParticipantExportCount(participantName);
+            
             document.getElementById('status-message').textContent = 'Status: Generating ZIP file...';
             
             const zip = new JSZip();
-            const folderName = `${participantName}_SoundObjectDrawings_${Date.now()}`;
+            // Use the chronological count in the folder name
+            const folderName = `${participantName}_${chronologicalCount}_Drawings`; 
             const folder = zip.folder(folderName);
             
             let filesAdded = 0;
@@ -748,19 +775,18 @@
                 }
             }
             
-            // This check should not be strictly necessary given the initial check, but good for safety
             if (filesAdded === 0) {
+                 // This should not happen due to previous check, but handle it
                  document.getElementById('status-message').textContent = 'Status: No drawings found to zip.';
-                 alert('No drawings found to create a zip file.');
                  return;
             }
             
             // Generate the ZIP file
             zip.generateAsync({ type: "blob" })
                 .then(function(content) {
-                    // Use FileSaver.js to save the file
-                    saveAs(content, `${participantName}_Drawings.zip`);
-                    document.getElementById('status-message').textContent = `Status: Successfully generated and downloaded ${filesAdded} images in a ZIP file!`;
+                    // Use the chronological count in the final ZIP filename
+                    saveAs(content, `${participantName}_${chronologicalCount}_Drawings.zip`);
+                    document.getElementById('status-message').textContent = `Status: Successfully generated and downloaded ${filesAdded} images in ZIP file ${chronologicalCount}.`;
                 })
                 .catch(error => {
                     console.error('ZIP generation error:', error);
@@ -1258,7 +1284,7 @@
             document.getElementById('redo-button').addEventListener('click', redo);
             document.getElementById('image-upload').addEventListener('change', handleImageUpload);
             
-            // NEW EVENT LISTENER: Download all drawings as ZIP
+            // EVENT LISTENER: Download all drawings as ZIP with chronological count
             document.getElementById('download-all-zip').addEventListener('click', downloadAllImagesAsZip);
             
             document.getElementById('export-csv').addEventListener('click', exportCSV);
