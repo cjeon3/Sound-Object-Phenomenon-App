@@ -1018,9 +1018,9 @@
             // Calculate path length
             const pathLength = calculatePathLength(unitPoints);
             
-            // Check if shape is 60%+ closed (lowered from 70% for better detection)
+            // Check if shape is 50%+ closed (very lenient for partial shapes)
             const closureRatio = (pathLength - gapDistance) / pathLength;
-            if (closureRatio < 0.60) return null; // Not closed enough
+            if (closureRatio < 0.50) return null; // Less than 50% traced = truly incomplete
             
             // Calculate bounding box
             let minX = unitPoints[0].x, maxX = unitPoints[0].x;
@@ -1346,7 +1346,8 @@
             console.log("Threshold (5x):", (avgSegment * 5.0).toFixed(3), "units");
             
             // Criterion 1: Direct closure check (extremely lenient)
-            const directClosure = closureDistance <= avgSegment * 8.0;
+            // Allow gap up to 15x average segment - handles most human imperfection
+            const directClosure = closureDistance <= avgSegment * 15.0;
             
             if (directClosure) {
                 console.log("✓ CLOSED (Criterion 1: Direct closure)");
@@ -1365,8 +1366,8 @@
             }
             
             // Criterion 3: Rotation analysis
-            // This catches cases where user "almost" completes the loop
-            if (closureDistance <= avgSegment * 10.0) {
+            // If shape rotates significantly, assume user intended closure
+            if (closureDistance <= avgSegment * 20.0) {
                 // Check if the path goes around (changes direction significantly)
                 // Calculate total angle change along path
                 let totalAngleChange = 0;
@@ -1416,14 +1417,15 @@
             const height = maxY - minY;
             const maxDimension = Math.max(width, height);
             
-            // If closure gap is less than 30% of max dimension, treat as closed
-            // Increased from 20% to 30% to be extremely lenient for traced squares
-            if (closureDistance < maxDimension * 0.30) {
-                console.log("✓ CLOSED (Criterion 3: Bounding box < 30%)");
+            // If closure gap is less than 50% of max dimension, treat as closed
+            // This is extremely lenient - only truly open/incomplete shapes will fail
+            // A 1×1 square can have gap up to 0.5 units and still close
+            if (closureDistance < maxDimension * 0.50) {
+                console.log("✓ CLOSED (Criterion 4: Bounding box < 50%)");
                 return true;
             }
             
-            console.log("✗ OPEN (all criteria failed)");
+            console.log("✗ OPEN (all criteria failed - gap is unnaturally large)");
             return false;
         }
         
