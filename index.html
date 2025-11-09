@@ -792,18 +792,35 @@
                 return calculateMedoid(unitPoints);
             }
             
-            // Calculate geometric centroid of convex hull
-            // This places centroid in the "cup" of horseshoe/crescent shapes
+            // Calculate geometric centroid of convex hull (polygon centroid, not just vertex average)
+            // This gives better center for irregular shapes
             let sumX = 0;
             let sumY = 0;
+            let signedArea = 0;
             
-            for (const p of hull) {
-                sumX += p.x;
-                sumY += p.y;
+            for (let i = 0; i < hull.length; i++) {
+                const p0 = hull[i];
+                const p1 = hull[(i + 1) % hull.length];
+                const cross = p0.x * p1.y - p1.x * p0.y;
+                signedArea += cross;
+                sumX += (p0.x + p1.x) * cross;
+                sumY += (p0.y + p1.y) * cross;
             }
             
-            const hullCentroidX = sumX / hull.length;
-            const hullCentroidY = sumY / hull.length;
+            signedArea *= 0.5;
+            const area = Math.abs(signedArea);
+            
+            let hullCentroidX, hullCentroidY;
+            
+            if (area > 0.001) {
+                // Proper polygon centroid
+                hullCentroidX = sumX / (6.0 * signedArea);
+                hullCentroidY = sumY / (6.0 * signedArea);
+            } else {
+                // Fallback to vertex average for degenerate cases
+                hullCentroidX = hull.reduce((sum, p) => sum + p.x, 0) / hull.length;
+                hullCentroidY = hull.reduce((sum, p) => sum + p.y, 0) / hull.length;
+            }
             
             // Calculate medoid of original shape
             const shapeMedoid = calculateMedoid(unitPoints);
@@ -812,9 +829,9 @@
             const concavity = calculateConcavity(unitPoints);
             
             // Blend between shape medoid and hull centroid based on concavity
-            // High concavity → more weight to hull centroid (visual center)
-            // Low concavity → more weight to shape medoid
-            const blendFactor = Math.min(1.0, concavity * 1.5);
+            // INCREASED from 1.5 to 2.5 for more aggressive hull weighting
+            // This ensures centroid stays in "bulk" for irregular shapes
+            const blendFactor = Math.min(1.0, concavity * 2.5);
             
             return {
                 x: (1 - blendFactor) * shapeMedoid.x + blendFactor * hullCentroidX,
@@ -839,12 +856,14 @@
             const concavity = calculateConcavity(unitPoints);
             
             // Decision tree based on shape properties (6 methods now!)
-            // Priority: Check concavity first for horseshoe/crescent shapes
+            // Priority: Check concavity FIRST to ensure centroid in bulk
+            // LOWERED threshold from 0.3 to 0.2 to catch more irregular shapes
             
-            if (concavity > 0.3) {
-                // Highly concave shape - use convex hull centroid
-                // Examples: horseshoe, crescent, C-shape, U-shape, Pac-Man
-                // Places centroid in the "cup" or visual center
+            if (concavity > 0.2) {
+                // Concave or irregular shape - use convex hull centroid
+                // LOWERED threshold catches more shapes to ensure centroid in bulk
+                // Examples: horseshoe, crescent, C-shape, U-shape, Pac-Man, irregular blobs
+                // Places centroid in the "bulk" or visual center
                 return calculateConvexHullCentroid(unitPoints);
                 
             } else if (aspectRatio > 3.0) {
