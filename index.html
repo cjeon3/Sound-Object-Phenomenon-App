@@ -745,6 +745,83 @@
             return calculateWeightedMedoidWithWeights(unitPoints, normalizedWeights, maxIterations, 0.001);
         }
         
+        // Helper: Calculate concavity (how much the shape deviates from its convex hull)
+        function calculateConcavity(unitPoints) {
+            if (unitPoints.length < 10) return 0;
+            
+            // Calculate convex hull
+            const hull = convexHull(unitPoints);
+            
+            if (hull.length < 3) return 0;
+            
+            // Calculate area of original shape (approximate)
+            let shapeArea = 0;
+            for (let i = 0; i < unitPoints.length; i++) {
+                const p1 = unitPoints[i];
+                const p2 = unitPoints[(i + 1) % unitPoints.length];
+                shapeArea += p1.x * p2.y - p2.x * p1.y;
+            }
+            shapeArea = Math.abs(shapeArea) / 2;
+            
+            // Calculate area of convex hull
+            let hullArea = 0;
+            for (let i = 0; i < hull.length; i++) {
+                const p1 = hull[i];
+                const p2 = hull[(i + 1) % hull.length];
+                hullArea += p1.x * p2.y - p2.x * p1.y;
+            }
+            hullArea = Math.abs(hullArea) / 2;
+            
+            if (hullArea === 0) return 0;
+            
+            // Concavity = 1 - (shape_area / hull_area)
+            // 0 = convex, 1 = very concave
+            return 1 - (shapeArea / hullArea);
+        }
+        
+        // Convex Hull-Based Centroid for concave shapes (horseshoe, crescent)
+        function calculateConvexHullCentroid(unitPoints) {
+            if (unitPoints.length < 10) {
+                return calculateMedoid(unitPoints);
+            }
+            
+            // Calculate convex hull
+            const hull = convexHull(unitPoints);
+            
+            if (hull.length < 3) {
+                return calculateMedoid(unitPoints);
+            }
+            
+            // Calculate geometric centroid of convex hull
+            // This places centroid in the "cup" of horseshoe/crescent shapes
+            let sumX = 0;
+            let sumY = 0;
+            
+            for (const p of hull) {
+                sumX += p.x;
+                sumY += p.y;
+            }
+            
+            const hullCentroidX = sumX / hull.length;
+            const hullCentroidY = sumY / hull.length;
+            
+            // Calculate medoid of original shape
+            const shapeMedoid = calculateMedoid(unitPoints);
+            
+            // Calculate concavity
+            const concavity = calculateConcavity(unitPoints);
+            
+            // Blend between shape medoid and hull centroid based on concavity
+            // High concavity → more weight to hull centroid (visual center)
+            // Low concavity → more weight to shape medoid
+            const blendFactor = Math.min(1.0, concavity * 1.5);
+            
+            return {
+                x: (1 - blendFactor) * shapeMedoid.x + blendFactor * hullCentroidX,
+                y: (1 - blendFactor) * shapeMedoid.y + blendFactor * hullCentroidY
+            };
+        }
+        
         // ADAPTIVE CENTROID: Automatically chooses best method based on shape characteristics
         function calculateAdaptiveCentroid(unitPoints, brushSize) {
             if (unitPoints.length < 3) {
@@ -759,18 +836,24 @@
             const aspectRatio = calculateAspectRatio(unitPoints);
             const densityVariance = calculateDensityVariance(unitPoints);
             const areaVariation = calculateAreaVariation(unitPoints, brushSize);
+            const concavity = calculateConcavity(unitPoints);
             
-            // Decision tree based on shape properties (5 methods)
-            // Priority: Area-weighted is now default for most cases
+            // Decision tree based on shape properties (6 methods now!)
+            // Priority: Check concavity first for horseshoe/crescent shapes
             
-            if (aspectRatio > 3.0) {
+            if (concavity > 0.3) {
+                // Highly concave shape - use convex hull centroid
+                // Examples: horseshoe, crescent, C-shape, U-shape, Pac-Man
+                // Places centroid in the "cup" or visual center
+                return calculateConvexHullCentroid(unitPoints);
+                
+            } else if (aspectRatio > 3.0) {
                 // Very elongated shape - use skeleton-constrained
                 // Examples: snake-like curves, long arcs
                 return calculateSkeletonConstrainedCenter(unitPoints);
                 
             } else if (areaVariation > 0.3) {
                 // Area variation detected - use area-weighted medoid
-                // LOWERED from 0.6 to 0.3 - now catches most shapes!
                 // Examples: most irregular shapes, blobs, any thickness variation
                 return calculateAreaWeightedMedoid(unitPoints, brushSize);
                 
@@ -955,7 +1038,14 @@
         function calculatePixelBasedArea(unitPoints, brushSize, resolution = 0.15) {
             if (unitPoints.length === 0) return 0;
             
-            const brushRadius = brushSize / SCALE_FACTOR / 2;
+            // For closed shapes, reduce brush radius impact (interior-focused)
+            // For open shapes, use full brush radius (stroke-focused)
+            const isClosed = isShapeClosed(unitPoints);
+            const fullBrushRadius = brushSize / SCALE_FACTOR / 2;
+            
+            // For closed shapes: use minimal brush radius (just for outline visibility)
+            // For open shapes: use full brush radius
+            const brushRadius = isClosed ? fullBrushRadius * 0.25 : fullBrushRadius;
             
             // Find bounding box
             let minX = unitPoints[0].x, maxX = unitPoints[0].x;
@@ -974,9 +1064,6 @@
             minY -= brushRadius;
             maxY += brushRadius;
             
-            // Check if shape is closed (for interior filling)
-            const isClosed = isShapeClosed(unitPoints);
-            
             // Sample grid and count "painted" cells
             let paintedCells = 0;
             
@@ -984,18 +1071,30 @@
                 for (let y = minY; y <= maxY; y += resolution) {
                     let isPainted = false;
                     
-                    // Check if within brush distance of any path point
-                    for (const p of unitPoints) {
-                        const dist = Math.sqrt((x - p.x) ** 2 + (y - p.y) ** 2);
-                        if (dist <= brushRadius) {
+                    if (isClosed) {
+                        // For closed shapes: prioritize interior, minimal stroke
+                        // First check if inside polygon (MAIN AREA)
+                        if (isPointInPolygon(x, y, unitPoints)) {
                             isPainted = true;
-                            break;
+                        } else {
+                            // Only count strokes very close to path (reduced radius)
+                            for (const p of unitPoints) {
+                                const dist = Math.sqrt((x - p.x) ** 2 + (y - p.y) ** 2);
+                                if (dist <= brushRadius) {
+                                    isPainted = true;
+                                    break;
+                                }
+                            }
                         }
-                    }
-                    
-                    // If closed shape and not painted by stroke, check if inside polygon
-                    if (!isPainted && isClosed) {
-                        isPainted = isPointInPolygon(x, y, unitPoints);
+                    } else {
+                        // For open shapes: only strokes matter (full radius)
+                        for (const p of unitPoints) {
+                            const dist = Math.sqrt((x - p.x) ** 2 + (y - p.y) ** 2);
+                            if (dist <= brushRadius) {
+                                isPainted = true;
+                                break;
+                            }
+                        }
                     }
                     
                     if (isPainted) {
