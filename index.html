@@ -1358,9 +1358,17 @@
             
             const maxDimension = Math.max(maxX - minX, maxY - minY);
             
-            // Determine if gap is reasonable for closure
-            // Gap should be < 50% of shape dimension to avoid erroneous data
-            const gapIsReasonable = closureDistance < maxDimension * 0.50;
+            // Determine if gap is reasonable for closure using multiple criteria
+            // 1. Gap < 50% of shape dimension (prevents crossing entire shape)
+            const gapVsDimension = closureDistance / maxDimension;
+            // 2. Gap < 20% of total path length (catches incomplete shapes with small gaps)
+            const gapVsPathLength = closureDistance / pathLength;
+            
+            // Gap is reasonable if EITHER criterion passes
+            const gapIsReasonable = (gapVsDimension < 0.50) || (gapVsPathLength < 0.20);
+            
+            console.log("Gap vs dimension:", (gapVsDimension * 100).toFixed(1), "%");
+            console.log("Gap vs path length:", (gapVsPathLength * 100).toFixed(1), "%");
             
             // Criterion 1: Direct closure check (extremely lenient)
             // Allow gap up to 15x average segment - handles most human imperfection
@@ -1371,8 +1379,7 @@
                 
                 // Add straight-line closure for ALL shapes if gap is reasonable
                 if (closureDistance > avgSegment * 0.5 && gapIsReasonable) {
-                    console.log("  → Adding straight-line closure (gap:", closureDistance.toFixed(3), "units,", 
-                               (closureDistance/maxDimension*100).toFixed(1), "% of dimension)");
+                    console.log("  → Adding straight-line closure (gap:", closureDistance.toFixed(3), "units)");
                     const steps = Math.max(3, Math.ceil(closureDistance / avgSegment));
                     for (let i = 1; i < steps; i++) {
                         const t = i / steps;
@@ -1382,8 +1389,7 @@
                         });
                     }
                 } else if (!gapIsReasonable) {
-                    console.log("  ⚠ Gap too large for closure (", 
-                               (closureDistance/maxDimension*100).toFixed(1), "% of dimension)");
+                    console.log("  ⚠ Gap too large for closure");
                 }
                 return true;
             }
@@ -1601,15 +1607,14 @@
                 }
                 
                 // Outline area contribution (approximate)
-                // We subtract 90% of the outline to get close to pure interior area
-                // This balances accuracy with discretization effects
-                const outlineArea = perimeter * (brushRadius * 2) * 0.90;
+                // We subtract 80% of the outline to balance accuracy with corner effects
+                const outlineArea = perimeter * (brushRadius * 2) * 0.80;
                 adjustedArea = Math.max(0, totalArea - outlineArea);
                 
                 console.log("Perimeter:", perimeter.toFixed(3), "units");
-                console.log("Outline area (90%):", outlineArea.toFixed(4), "units²");
+                console.log("Outline area (80%):", outlineArea.toFixed(4), "units²");
                 console.log("ADJUSTED AREA:", adjustedArea.toFixed(4), "units²");
-                console.log("(Subtracted 90% of outline)");
+                console.log("(Subtracted 80% of outline)");
             }
             
             // DEBUG LOGGING
@@ -1689,25 +1694,20 @@
         
         // PIXEL-BASED AREA: Always uses pixel-based calculation for accuracy
         // 
-        // POST-PROCESSING: For closed shapes, subtracts 90% of outline thickness
-        // to get close to true interior area while accounting for corner effects
+        // POST-PROCESSING: For closed shapes, subtracts 80% of outline thickness
+        // to balance accuracy with corner overlap effects
         //
         // Expected areas for different scenarios:
         // 
         // - Traced 1×1 grid square (closed, brush size 5px = 0.05 radius):
         //   Raw area ≈ 1.4 units² (interior + outline)
-        //   Adjusted area ≈ 1.03-1.06 units² (after subtracting 90% of outline)
-        //   ✓ Very close to 1.0 grid square
+        //   Adjusted area ≈ 1.06-1.10 units² (after subtracting 80% of outline)
+        //   ✓ Close to 1.0 grid square
         // 
         // - Traced 2×2 grid square (closed, brush size 5px):
         //   Raw area ≈ 4.8 units²
-        //   Adjusted area ≈ 4.06-4.12 units²
-        //   ✓ Very close to 4.0 grid squares
-        // 
-        // - Traced 3×3 grid square (closed, brush size 5px):
-        //   Raw area ≈ 10.2 units²
-        //   Adjusted area ≈ 9.12-9.18 units²
-        //   ✓ Very close to 9.0 grid squares
+        //   Adjusted area ≈ 4.15-4.20 units²
+        //   ✓ Close to 4.0 grid squares
         // 
         // - Traced outline (open, brush size 5px):
         //   Area ≈ perimeter × brush_diameter
@@ -1720,7 +1720,7 @@
             
             // Use adaptive resolution (null = auto-select based on brush size)
             // This ensures thin strokes are captured accurately
-            // Post-processing will adjust closed shapes to subtract 90% of outline
+            // Post-processing will adjust closed shapes to subtract 80% of outline
             return calculatePixelBasedArea(unitPoints, brushSize, null);
         }
         
