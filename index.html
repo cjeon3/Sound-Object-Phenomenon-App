@@ -1018,9 +1018,9 @@
             // Calculate path length
             const pathLength = calculatePathLength(unitPoints);
             
-            // Check if shape is 70%+ closed
+            // Check if shape is 60%+ closed (lowered from 70% for better detection)
             const closureRatio = (pathLength - gapDistance) / pathLength;
-            if (closureRatio < 0.70) return null; // Not closed enough
+            if (closureRatio < 0.60) return null; // Not closed enough
             
             // Calculate bounding box
             let minX = unitPoints[0].x, maxX = unitPoints[0].x;
@@ -1345,8 +1345,8 @@
             console.log("Avg segment:", avgSegment.toFixed(3), "units");
             console.log("Threshold (5x):", (avgSegment * 5.0).toFixed(3), "units");
             
-            // Criterion 1: Direct closure check (very lenient)
-            const directClosure = closureDistance <= avgSegment * 5.0;
+            // Criterion 1: Direct closure check (extremely lenient)
+            const directClosure = closureDistance <= avgSegment * 8.0;
             
             if (directClosure) {
                 console.log("✓ CLOSED (Criterion 1: Direct closure)");
@@ -1364,9 +1364,9 @@
                 return true;
             }
             
-            // Criterion 2: Nearly closed - check if endpoints are close to opposite ends
+            // Criterion 3: Rotation analysis
             // This catches cases where user "almost" completes the loop
-            if (closureDistance <= avgSegment * 5.0) {
+            if (closureDistance <= avgSegment * 10.0) {
                 // Check if the path goes around (changes direction significantly)
                 // Calculate total angle change along path
                 let totalAngleChange = 0;
@@ -1416,10 +1416,10 @@
             const height = maxY - minY;
             const maxDimension = Math.max(width, height);
             
-            // If closure gap is less than 20% of max dimension, treat as closed
-            // Increased from 15% to 20% to be more lenient for traced squares
-            if (closureDistance < maxDimension * 0.20) {
-                console.log("✓ CLOSED (Criterion 3: Bounding box < 20%)");
+            // If closure gap is less than 30% of max dimension, treat as closed
+            // Increased from 20% to 30% to be extremely lenient for traced squares
+            if (closureDistance < maxDimension * 0.30) {
+                console.log("✓ CLOSED (Criterion 3: Bounding box < 30%)");
                 return true;
             }
             
