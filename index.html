@@ -700,7 +700,7 @@
             return length;
         }
         
-        // Helper: Check if shape is closed
+        // Helper: Check if shape is closed (improved with multiple criteria)
         function isShapeClosed(unitPoints) {
             if (unitPoints.length < 10) return false;
             
@@ -715,7 +715,70 @@
             const pathLength = calculatePathLength(unitPoints);
             const avgSegment = pathLength / (unitPoints.length - 1);
             
-            return closureDistance <= avgSegment * 2.0;
+            // Criterion 1: Direct closure check (more lenient)
+            // Allow gap up to 3x average segment (was 2x)
+            const directClosure = closureDistance <= avgSegment * 3.0;
+            
+            if (directClosure) return true;
+            
+            // Criterion 2: Nearly closed - check if endpoints are close to opposite ends
+            // This catches cases where user "almost" completes the loop
+            if (closureDistance <= avgSegment * 5.0) {
+                // Check if the path goes around (changes direction significantly)
+                // Calculate total angle change along path
+                let totalAngleChange = 0;
+                
+                for (let i = 1; i < unitPoints.length - 1; i++) {
+                    const p0 = unitPoints[i - 1];
+                    const p1 = unitPoints[i];
+                    const p2 = unitPoints[i + 1];
+                    
+                    const v1x = p1.x - p0.x;
+                    const v1y = p1.y - p0.y;
+                    const v2x = p2.x - p1.x;
+                    const v2y = p2.y - p1.y;
+                    
+                    const mag1 = Math.sqrt(v1x * v1x + v1y * v1y);
+                    const mag2 = Math.sqrt(v2x * v2x + v2y * v2y);
+                    
+                    if (mag1 > 0 && mag2 > 0) {
+                        const dot = v1x * v2x + v1y * v2y;
+                        const cosAngle = dot / (mag1 * mag2);
+                        const angle = Math.acos(Math.max(-1, Math.min(1, cosAngle)));
+                        totalAngleChange += angle;
+                    }
+                }
+                
+                // If total angle change is close to 2π (360°), it's a closed loop
+                // Allow for approximately one full rotation (±50%)
+                const fullRotation = 2 * Math.PI;
+                if (totalAngleChange > fullRotation * 0.5) {
+                    return true; // Likely intended as closed
+                }
+            }
+            
+            // Criterion 3: Check if bounding box suggests closed shape
+            // If endpoints are far apart relative to bounding box, likely open
+            let minX = unitPoints[0].x, maxX = unitPoints[0].x;
+            let minY = unitPoints[0].y, maxY = unitPoints[0].y;
+            
+            for (const p of unitPoints) {
+                minX = Math.min(minX, p.x);
+                maxX = Math.max(maxX, p.x);
+                minY = Math.min(minY, p.y);
+                maxY = Math.max(maxY, p.y);
+            }
+            
+            const width = maxX - minX;
+            const height = maxY - minY;
+            const maxDimension = Math.max(width, height);
+            
+            // If closure gap is less than 15% of max dimension, treat as closed
+            if (closureDistance < maxDimension * 0.15) {
+                return true;
+            }
+            
+            return false;
         }
         
         // Method 1: Brush-Aware Ribbon Area (for open shapes or thin lines)
@@ -759,20 +822,28 @@
             minY -= brushRadius;
             maxY += brushRadius;
             
+            // Check if shape is closed (for interior filling)
+            const isClosed = isShapeClosed(unitPoints);
+            
             // Sample grid and count "painted" cells
             let paintedCells = 0;
             
             for (let x = minX; x <= maxX; x += resolution) {
                 for (let y = minY; y <= maxY; y += resolution) {
-                    // Check if this point is within brush distance of any path point
                     let isPainted = false;
                     
+                    // Check if within brush distance of any path point
                     for (const p of unitPoints) {
                         const dist = Math.sqrt((x - p.x) ** 2 + (y - p.y) ** 2);
                         if (dist <= brushRadius) {
                             isPainted = true;
                             break;
                         }
+                    }
+                    
+                    // If closed shape and not painted by stroke, check if inside polygon
+                    if (!isPainted && isClosed) {
+                        isPainted = isPointInPolygon(x, y, unitPoints);
                     }
                     
                     if (isPainted) {
@@ -784,6 +855,20 @@
             // Area = number of cells × cell area
             const cellArea = resolution * resolution;
             return paintedCells * cellArea;
+        }
+        
+        // Helper: Point-in-polygon test using ray casting
+        function isPointInPolygon(x, y, polygon) {
+            let inside = false;
+            for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+                const xi = polygon[i].x, yi = polygon[i].y;
+                const xj = polygon[j].x, yj = polygon[j].y;
+                
+                const intersect = ((yi > y) !== (yj > y))
+                    && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+                if (intersect) inside = !inside;
+            }
+            return inside;
         }
         
         // Method 3: Hybrid Area (polygon + brush perimeter, for closed shapes)
