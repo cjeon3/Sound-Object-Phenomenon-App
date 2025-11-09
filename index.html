@@ -1343,7 +1343,24 @@
             console.log("Path length:", pathLength.toFixed(3), "units");
             console.log("Closure distance:", closureDistance.toFixed(3), "units");
             console.log("Avg segment:", avgSegment.toFixed(3), "units");
-            console.log("Threshold (5x):", (avgSegment * 5.0).toFixed(3), "units");
+            console.log("Threshold (15x):", (avgSegment * 15.0).toFixed(3), "units");
+            
+            // Calculate bounding box for gap threshold
+            let minX = unitPoints[0].x, maxX = unitPoints[0].x;
+            let minY = unitPoints[0].y, maxY = unitPoints[0].y;
+            
+            for (const p of unitPoints) {
+                minX = Math.min(minX, p.x);
+                maxX = Math.max(maxX, p.x);
+                minY = Math.min(minY, p.y);
+                maxY = Math.max(maxY, p.y);
+            }
+            
+            const maxDimension = Math.max(maxX - minX, maxY - minY);
+            
+            // Determine if gap is reasonable for closure
+            // Gap should be < 50% of shape dimension to avoid erroneous data
+            const gapIsReasonable = closureDistance < maxDimension * 0.50;
             
             // Criterion 1: Direct closure check (extremely lenient)
             // Allow gap up to 15x average segment - handles most human imperfection
@@ -1351,6 +1368,23 @@
             
             if (directClosure) {
                 console.log("✓ CLOSED (Criterion 1: Direct closure)");
+                
+                // Add straight-line closure for ALL shapes if gap is reasonable
+                if (closureDistance > avgSegment * 0.5 && gapIsReasonable) {
+                    console.log("  → Adding straight-line closure (gap:", closureDistance.toFixed(3), "units,", 
+                               (closureDistance/maxDimension*100).toFixed(1), "% of dimension)");
+                    const steps = Math.max(3, Math.ceil(closureDistance / avgSegment));
+                    for (let i = 1; i < steps; i++) {
+                        const t = i / steps;
+                        unitPoints.push({
+                            x: last.x + (first.x - last.x) * t,
+                            y: last.y + (first.y - last.y) * t
+                        });
+                    }
+                } else if (!gapIsReasonable) {
+                    console.log("  ⚠ Gap too large for closure (", 
+                               (closureDistance/maxDimension*100).toFixed(1), "% of dimension)");
+                }
                 return true;
             }
             
@@ -1397,31 +1431,42 @@
                 // Allow for approximately one full rotation (±50%)
                 const fullRotation = 2 * Math.PI;
                 if (totalAngleChange > fullRotation * 0.5) {
+                    console.log("✓ CLOSED (Criterion 3: Rotation analysis)");
+                    
+                    // Add straight-line closure if gap is reasonable
+                    if (closureDistance > avgSegment * 0.5 && gapIsReasonable) {
+                        console.log("  → Adding straight-line closure (gap:", closureDistance.toFixed(3), "units)");
+                        const steps = Math.max(3, Math.ceil(closureDistance / avgSegment));
+                        for (let i = 1; i < steps; i++) {
+                            const t = i / steps;
+                            unitPoints.push({
+                                x: last.x + (first.x - last.x) * t,
+                                y: last.y + (first.y - last.y) * t
+                            });
+                        }
+                    }
                     return true; // Likely intended as closed
                 }
             }
             
-            // Criterion 3: Check if bounding box suggests closed shape
-            // If endpoints are far apart relative to bounding box, likely open
-            let minX = unitPoints[0].x, maxX = unitPoints[0].x;
-            let minY = unitPoints[0].y, maxY = unitPoints[0].y;
-            
-            for (const p of unitPoints) {
-                minX = Math.min(minX, p.x);
-                maxX = Math.max(maxX, p.x);
-                minY = Math.min(minY, p.y);
-                maxY = Math.max(maxY, p.y);
-            }
-            
-            const width = maxX - minX;
-            const height = maxY - minY;
-            const maxDimension = Math.max(width, height);
-            
+            // Criterion 4: Check if bounding box suggests closed shape
             // If closure gap is less than 50% of max dimension, treat as closed
             // This is extremely lenient - only truly open/incomplete shapes will fail
-            // A 1×1 square can have gap up to 0.5 units and still close
             if (closureDistance < maxDimension * 0.50) {
                 console.log("✓ CLOSED (Criterion 4: Bounding box < 50%)");
+                
+                // Add straight-line closure if gap is reasonable (already checked above)
+                if (closureDistance > avgSegment * 0.5 && gapIsReasonable) {
+                    console.log("  → Adding straight-line closure (gap:", closureDistance.toFixed(3), "units)");
+                    const steps = Math.max(3, Math.ceil(closureDistance / avgSegment));
+                    for (let i = 1; i < steps; i++) {
+                        const t = i / steps;
+                        unitPoints.push({
+                            x: last.x + (first.x - last.x) * t,
+                            y: last.y + (first.y - last.y) * t
+                        });
+                    }
+                }
                 return true;
             }
             
