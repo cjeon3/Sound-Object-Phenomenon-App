@@ -833,39 +833,13 @@
             return Math.abs(area) / 2;
         }
         
-        // ADAPTIVE AREA: Automatically chooses best method based on characteristics
+        // PIXEL-BASED AREA: Always uses pixel-based calculation for accuracy
         function calculateAdaptiveArea(unitPoints, brushSize) {
             if (unitPoints.length < 2) return 0;
             
-            const brushRadius = brushSize / SCALE_FACTOR / 2;
-            const aspectRatio = calculateAspectRatio(unitPoints);
-            const isClosed = isShapeClosed(unitPoints);
-            
-            // Decision tree based on brush size and shape properties
-            if (brushSize <= 3) {
-                // Very thin brush - polygon area is accurate enough
-                if (isClosed && unitPoints.length >= 3) {
-                    return calculatePolygonArea(unitPoints);
-                } else {
-                    // Open shape with thin brush - minimal area
-                    return calculateBrushAwareArea(unitPoints, brushSize);
-                }
-                
-            } else if (brushSize > 8 || aspectRatio > 5) {
-                // Very thick brush OR very elongated shape
-                // Use pixel-based for highest accuracy
-                return calculatePixelBasedArea(unitPoints, brushSize, 0.15);
-                
-            } else if (isClosed) {
-                // Closed shape with moderate brush
-                // Use hybrid (polygon + perimeter)
-                return calculateHybridArea(unitPoints, brushSize);
-                
-            } else {
-                // Open shape with moderate brush
-                // Use brush-aware ribbon
-                return calculateBrushAwareArea(unitPoints, brushSize);
-            }
+            // Always use pixel-based area for consistent, visual accuracy
+            // This accounts for brush thickness and matches what users see
+            return calculatePixelBasedArea(unitPoints, brushSize, 0.1);
         }
 
         // Convex Hull calculation using Graham Scan algorithm
