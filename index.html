@@ -1022,11 +1022,23 @@
             const pathLength = calculatePathLength(unitPoints);
             const avgSegment = pathLength / (unitPoints.length - 1);
             
-            // Criterion 1: Direct closure check (more lenient)
-            // Allow gap up to 3x average segment (was 2x)
-            const directClosure = closureDistance <= avgSegment * 3.0;
+            // DEBUG LOGGING
+            console.log("=== CLOSURE DETECTION ===");
+            console.log("Points:", unitPoints.length);
+            console.log("Path length:", pathLength.toFixed(3), "units");
+            console.log("Closure distance:", closureDistance.toFixed(3), "units");
+            console.log("Avg segment:", avgSegment.toFixed(3), "units");
+            console.log("Threshold (5x):", (avgSegment * 5.0).toFixed(3), "units");
             
-            if (directClosure) return true;
+            // Criterion 1: Direct closure check (very lenient)
+            // Allow gap up to 5x average segment to catch traced squares
+            // This ensures nearly-closed squares are properly filled
+            const directClosure = closureDistance <= avgSegment * 5.0;
+            
+            if (directClosure) {
+                console.log("✓ CLOSED (Criterion 1: Direct closure)");
+                return true;
+            }
             
             // Criterion 2: Nearly closed - check if endpoints are close to opposite ends
             // This catches cases where user "almost" completes the loop
@@ -1080,11 +1092,14 @@
             const height = maxY - minY;
             const maxDimension = Math.max(width, height);
             
-            // If closure gap is less than 15% of max dimension, treat as closed
-            if (closureDistance < maxDimension * 0.15) {
+            // If closure gap is less than 20% of max dimension, treat as closed
+            // Increased from 15% to 20% to be more lenient for traced squares
+            if (closureDistance < maxDimension * 0.20) {
+                console.log("✓ CLOSED (Criterion 3: Bounding box < 20%)");
                 return true;
             }
             
+            console.log("✗ OPEN (all criteria failed)");
             return false;
         }
         
@@ -1106,18 +1121,38 @@
             return ribbonArea + capArea;
         }
         
-        // Method 2: Pixel-Based Area (most accurate, for thick brushes)
-        function calculatePixelBasedArea(unitPoints, brushSize, resolution = 0.15) {
+        // Method 2: Pixel-Based Area (most accurate, for all shapes)
+        function calculatePixelBasedArea(unitPoints, brushSize, resolution = null) {
             if (unitPoints.length === 0) return 0;
             
-            // For closed shapes, reduce brush radius impact (interior-focused)
-            // For open shapes, use full brush radius (stroke-focused)
+            // Calculate brush radius in units
             const isClosed = isShapeClosed(unitPoints);
             const fullBrushRadius = brushSize / SCALE_FACTOR / 2;
             
-            // For closed shapes: use minimal brush radius (just for outline visibility)
-            // For open shapes: use full brush radius
-            const brushRadius = isClosed ? fullBrushRadius * 0.25 : fullBrushRadius;
+            // For closed shapes: include full interior + outline with full brush
+            // For open shapes: use full brush radius for the stroke
+            const brushRadius = fullBrushRadius;
+            
+            // DEBUG LOGGING
+            console.log("=== AREA CALCULATION ===");
+            console.log("Brush size (pixels):", brushSize);
+            console.log("Brush radius (units):", brushRadius.toFixed(4));
+            console.log("Brush diameter (units):", (brushRadius * 2).toFixed(4));
+            console.log("Shape is CLOSED:", isClosed);
+            
+            // Adaptive resolution: use finer grid for thin brushes
+            // This ensures we don't miss thin lines
+            if (resolution === null) {
+                if (brushRadius < 0.05) {
+                    resolution = 0.05; // Finer resolution for very thin brushes
+                } else if (brushRadius < 0.1) {
+                    resolution = 0.075; // Medium-fine resolution
+                } else {
+                    resolution = 0.1; // Standard resolution for thick brushes
+                }
+            }
+            
+            console.log("Grid resolution:", resolution);
             
             // Find bounding box
             let minX = unitPoints[0].x, maxX = unitPoints[0].x;
@@ -1144,12 +1179,12 @@
                     let isPainted = false;
                     
                     if (isClosed) {
-                        // For closed shapes: prioritize interior, minimal stroke
-                        // First check if inside polygon (MAIN AREA)
+                        // For closed shapes: include BOTH interior AND outline
+                        // First check if inside polygon (INTERIOR AREA)
                         if (isPointInPolygon(x, y, unitPoints)) {
                             isPainted = true;
                         } else {
-                            // Only count strokes very close to path (reduced radius)
+                            // Also check if within brush radius of path (OUTLINE)
                             for (const p of unitPoints) {
                                 const dist = Math.sqrt((x - p.x) ** 2 + (y - p.y) ** 2);
                                 if (dist <= brushRadius) {
@@ -1177,7 +1212,15 @@
             
             // Area = number of cells × cell area
             const cellArea = resolution * resolution;
-            return paintedCells * cellArea;
+            const totalArea = paintedCells * cellArea;
+            
+            // DEBUG LOGGING
+            console.log("Painted cells:", paintedCells);
+            console.log("Cell area:", cellArea.toFixed(6), "units²");
+            console.log("TOTAL AREA:", totalArea.toFixed(4), "units²");
+            console.log("========================");
+            
+            return totalArea;
         }
         
         // Helper: Point-in-polygon test using ray casting
@@ -1242,12 +1285,27 @@
         }
         
         // PIXEL-BASED AREA: Always uses pixel-based calculation for accuracy
+        // 
+        // Expected areas for different scenarios:
+        // - Traced 1×1 grid square (open, brush size 5px = 0.05 radius):
+        //   Path length = ~4 units, brush diameter = 0.1 units
+        //   Area ≈ 4 × 0.1 = 0.4 units² (approximate)
+        // 
+        // - Traced 1×1 grid square (open, brush size 1px = 0.01 radius):
+        //   Path length = ~4 units, brush diameter = 0.02 units
+        //   Area ≈ 4 × 0.02 = 0.08 units² (approximate)
+        // 
+        // - Filled 1×1 grid square (closed, brush size 5px):
+        //   Interior = 1.0 units² + outline ≈ 0.4 units² = ~1.4 units² total
+        //
+        // Note: Uses adaptive resolution based on brush size for accuracy
+        //
         function calculateAdaptiveArea(unitPoints, brushSize) {
             if (unitPoints.length < 2) return 0;
             
-            // Always use pixel-based area for consistent, visual accuracy
-            // This accounts for brush thickness and matches what users see
-            return calculatePixelBasedArea(unitPoints, brushSize, 0.1);
+            // Use adaptive resolution (null = auto-select based on brush size)
+            // This ensures thin strokes are captured accurately
+            return calculatePixelBasedArea(unitPoints, brushSize, null);
         }
         
         // ============================================
