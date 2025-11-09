@@ -606,6 +606,145 @@
             return calculateMedoid(expandedPoints, maxIterations, 0.001);
         }
         
+        // Helper: Calculate area variation (how much visual area varies across shape)
+        function calculateAreaVariation(unitPoints, brushSize) {
+            if (unitPoints.length < 5) return 0;
+            
+            const brushRadius = brushSize / SCALE_FACTOR / 2;
+            const areaContributions = [];
+            
+            // Calculate area contribution for each point
+            for (let i = 0; i < unitPoints.length; i++) {
+                let areaContribution = 0;
+                
+                // Base contribution: circle at this point
+                const baseArea = Math.PI * brushRadius * brushRadius;
+                areaContribution += baseArea;
+                
+                // Add contribution from segments
+                if (i > 0) {
+                    const p0 = unitPoints[i - 1];
+                    const p1 = unitPoints[i];
+                    const segmentLength = Math.sqrt(
+                        (p1.x - p0.x) ** 2 + (p1.y - p0.y) ** 2
+                    );
+                    areaContribution += segmentLength * (brushRadius * 2) / 2;
+                }
+                
+                if (i < unitPoints.length - 1) {
+                    const p1 = unitPoints[i];
+                    const p2 = unitPoints[i + 1];
+                    const segmentLength = Math.sqrt(
+                        (p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2
+                    );
+                    areaContribution += segmentLength * (brushRadius * 2) / 2;
+                }
+                
+                areaContributions.push(areaContribution);
+            }
+            
+            // Calculate coefficient of variation
+            const mean = areaContributions.reduce((sum, a) => sum + a, 0) / areaContributions.length;
+            if (mean === 0) return 0;
+            
+            const variance = areaContributions.reduce((sum, a) => sum + (a - mean) ** 2, 0) / areaContributions.length;
+            return Math.sqrt(variance) / mean;
+        }
+        
+        // Helper: Weighted Medoid with custom weights
+        function calculateWeightedMedoidWithWeights(unitPoints, weights, maxIterations = 50, tolerance = 0.001) {
+            if (unitPoints.length === 0) return { x: 0, y: 0 };
+            if (unitPoints.length === 1) return { x: unitPoints[0].x, y: unitPoints[0].y };
+            
+            // Initialize with weighted geometric centroid
+            let totalWeight = weights.reduce((sum, w) => sum + w, 0);
+            let currentX = unitPoints.reduce((sum, p, i) => sum + p.x * weights[i], 0) / totalWeight;
+            let currentY = unitPoints.reduce((sum, p, i) => sum + p.y * weights[i], 0) / totalWeight;
+            
+            // Weighted Weiszfeld's algorithm
+            for (let iter = 0; iter < maxIterations; iter++) {
+                let numeratorX = 0;
+                let numeratorY = 0;
+                let denominator = 0;
+                
+                for (let i = 0; i < unitPoints.length; i++) {
+                    const p = unitPoints[i];
+                    const dist = Math.sqrt((p.x - currentX) ** 2 + (p.y - currentY) ** 2);
+                    
+                    if (dist < 1e-10) continue;
+                    
+                    const weight = weights[i] / dist;
+                    numeratorX += p.x * weight;
+                    numeratorY += p.y * weight;
+                    denominator += weight;
+                }
+                
+                if (denominator === 0) break;
+                
+                const newX = numeratorX / denominator;
+                const newY = numeratorY / denominator;
+                
+                const change = Math.sqrt((newX - currentX) ** 2 + (newY - currentY) ** 2);
+                
+                currentX = newX;
+                currentY = newY;
+                
+                if (change < tolerance) break;
+            }
+            
+            return { x: currentX, y: currentY };
+        }
+        
+        // Area-Weighted Medoid: Points representing more visual area have more influence
+        function calculateAreaWeightedMedoid(unitPoints, brushSize, maxIterations = 50) {
+            if (unitPoints.length < 3) {
+                return calculateMedoid(unitPoints, maxIterations, 0.001);
+            }
+            
+            const brushRadius = brushSize / SCALE_FACTOR / 2;
+            
+            // Calculate area contribution for each point
+            const weights = [];
+            
+            for (let i = 0; i < unitPoints.length; i++) {
+                let areaContribution = 0;
+                
+                // Base contribution: circle at this point
+                const baseArea = Math.PI * brushRadius * brushRadius;
+                areaContribution += baseArea;
+                
+                // Add contribution from segments before this point
+                if (i > 0) {
+                    const p0 = unitPoints[i - 1];
+                    const p1 = unitPoints[i];
+                    const segmentLength = Math.sqrt(
+                        (p1.x - p0.x) ** 2 + (p1.y - p0.y) ** 2
+                    );
+                    // Rectangle area of this segment
+                    areaContribution += segmentLength * (brushRadius * 2) / 2;
+                }
+                
+                // Add contribution from segments after this point
+                if (i < unitPoints.length - 1) {
+                    const p1 = unitPoints[i];
+                    const p2 = unitPoints[i + 1];
+                    const segmentLength = Math.sqrt(
+                        (p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2
+                    );
+                    areaContribution += segmentLength * (brushRadius * 2) / 2;
+                }
+                
+                weights.push(areaContribution);
+            }
+            
+            // Normalize weights
+            const totalWeight = weights.reduce((sum, w) => sum + w, 0);
+            const normalizedWeights = weights.map(w => w / totalWeight * unitPoints.length);
+            
+            // Calculate weighted medoid
+            return calculateWeightedMedoidWithWeights(unitPoints, normalizedWeights, maxIterations, 0.001);
+        }
+        
         // ADAPTIVE CENTROID: Automatically chooses best method based on shape characteristics
         function calculateAdaptiveCentroid(unitPoints, brushSize) {
             if (unitPoints.length < 3) {
@@ -619,20 +758,29 @@
             // Analyze shape characteristics
             const aspectRatio = calculateAspectRatio(unitPoints);
             const densityVariance = calculateDensityVariance(unitPoints);
+            const areaVariation = calculateAreaVariation(unitPoints, brushSize);
             
-            // Decision tree based on shape properties
+            // Decision tree based on shape properties (5 methods)
             if (aspectRatio > 3.0) {
                 // Very elongated shape - use skeleton-constrained
                 // Examples: snake-like curves, long arcs
                 return calculateSkeletonConstrainedCenter(unitPoints);
+                
+            } else if (areaVariation > 0.6) {
+                // High area variation - use area-weighted medoid
+                // Examples: blobs with tails, shapes with thick/thin parts
+                return calculateAreaWeightedMedoid(unitPoints, brushSize);
+                
             } else if (densityVariance > 0.5) {
                 // High density variation - use weighted medoid
                 // Examples: shapes with thick and thin parts
                 return calculateWeightedMedoid(unitPoints);
+                
             } else if (brushSize > 5) {
                 // Thick strokes - use brush-aware medoid
                 // Better represents visual mass
                 return calculateBrushAwareMedoid(unitPoints, brushSize);
+                
             } else {
                 // Standard case - basic medoid
                 return calculateMedoid(unitPoints);
