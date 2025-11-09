@@ -1498,7 +1498,31 @@
             return ribbonArea + capArea;
         }
         
+        // Helper function to calculate distance from point to line segment
+        function distanceToSegment(px, py, x1, y1, x2, y2) {
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const lengthSquared = dx * dx + dy * dy;
+            
+            if (lengthSquared === 0) {
+                // Segment is a point
+                return Math.sqrt((px - x1) * (px - x1) + (py - y1) * (py - y1));
+            }
+            
+            // Calculate projection parameter
+            let t = ((px - x1) * dx + (py - y1) * dy) / lengthSquared;
+            t = Math.max(0, Math.min(1, t));
+            
+            // Find closest point on segment
+            const closestX = x1 + t * dx;
+            const closestY = y1 + t * dy;
+            
+            // Return distance to closest point
+            return Math.sqrt((px - closestX) * (px - closestX) + (py - closestY) * (py - closestY));
+        }
+        
         // Method 2: Pixel-Based Area (most accurate, for all shapes)
+        // FIXED: Now properly accounts for curved paths by checking distance to line segments
         function calculatePixelBasedArea(unitPoints, brushSize, resolution = null) {
             if (unitPoints.length === 0) return 0;
             
@@ -1511,7 +1535,7 @@
             const brushRadius = fullBrushRadius;
             
             // DEBUG LOGGING
-            console.log("=== AREA CALCULATION ===");
+            console.log("=== AREA CALCULATION (FIXED) ===");
             console.log("Brush size (pixels):", brushSize);
             console.log("Brush radius (units):", brushRadius.toFixed(4));
             console.log("Brush diameter (units):", (brushRadius * 2).toFixed(4));
@@ -1561,9 +1585,12 @@
                         if (isPointInPolygon(x, y, unitPoints)) {
                             isPainted = true;
                         } else {
-                            // Also check if within brush radius of path (OUTLINE)
-                            for (const p of unitPoints) {
-                                const dist = Math.sqrt((x - p.x) ** 2 + (y - p.y) ** 2);
+                            // Also check if within brush radius of ANY LINE SEGMENT (OUTLINE)
+                            // FIXED: Check distance to line segments, not just points
+                            for (let i = 0; i < unitPoints.length - 1; i++) {
+                                const p1 = unitPoints[i];
+                                const p2 = unitPoints[i + 1];
+                                const dist = distanceToSegment(x, y, p1.x, p1.y, p2.x, p2.y);
                                 if (dist <= brushRadius) {
                                     isPainted = true;
                                     break;
@@ -1571,9 +1598,12 @@
                             }
                         }
                     } else {
-                        // For open shapes: only strokes matter (full radius)
-                        for (const p of unitPoints) {
-                            const dist = Math.sqrt((x - p.x) ** 2 + (y - p.y) ** 2);
+                        // For open shapes: check distance to line segments
+                        // FIXED: Check distance to line segments, not just points
+                        for (let i = 0; i < unitPoints.length - 1; i++) {
+                            const p1 = unitPoints[i];
+                            const p2 = unitPoints[i + 1];
+                            const dist = distanceToSegment(x, y, p1.x, p1.y, p2.x, p2.y);
                             if (dist <= brushRadius) {
                                 isPainted = true;
                                 break;
