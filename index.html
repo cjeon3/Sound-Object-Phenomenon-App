@@ -427,6 +427,52 @@
         }
 
         // Calculate centroid using shoelace formula
+        // Medoid calculation using Weiszfeld's algorithm
+        // Finds the point that minimizes sum of distances to all points
+        // This guarantees the centroid is always inside or on the shape
+        function calculateMedoid(unitPoints, maxIterations = 50, tolerance = 0.001) {
+            if (unitPoints.length === 0) return { x: 0, y: 0 };
+            if (unitPoints.length === 1) return { x: unitPoints[0].x, y: unitPoints[0].y };
+            
+            // Initialize with geometric centroid as starting point
+            let currentX = unitPoints.reduce((sum, p) => sum + p.x, 0) / unitPoints.length;
+            let currentY = unitPoints.reduce((sum, p) => sum + p.y, 0) / unitPoints.length;
+            
+            // Weiszfeld's algorithm - iterative refinement
+            for (let iter = 0; iter < maxIterations; iter++) {
+                let numeratorX = 0;
+                let numeratorY = 0;
+                let denominator = 0;
+                
+                for (const p of unitPoints) {
+                    const dist = Math.sqrt((p.x - currentX) ** 2 + (p.y - currentY) ** 2);
+                    
+                    // Avoid division by zero
+                    if (dist < 1e-10) continue;
+                    
+                    const weight = 1.0 / dist;
+                    numeratorX += p.x * weight;
+                    numeratorY += p.y * weight;
+                    denominator += weight;
+                }
+                
+                if (denominator === 0) break;
+                
+                const newX = numeratorX / denominator;
+                const newY = numeratorY / denominator;
+                
+                // Check convergence
+                const change = Math.sqrt((newX - currentX) ** 2 + (newY - currentY) ** 2);
+                
+                currentX = newX;
+                currentY = newY;
+                
+                if (change < tolerance) break;
+            }
+            
+            return { x: currentX, y: currentY };
+        }
+
         // Convex Hull calculation using Graham Scan algorithm
         function convexHull(points) {
             if (points.length <= 3) return points;
@@ -468,36 +514,27 @@
             return lower.concat(upper);
         }
 
-        // Calculate area and centroid using Shoelace formula on a closed polygon
+        // Calculate area and centroid using Shoelace formula for area, Medoid for centroid
         function calculatePolygonAreaAndCentroid(polygonPoints) {
             if (polygonPoints.length < 3) return { area: 0, x: 0, y: 0 };
             
+            // Calculate area using Shoelace formula
             let sumArea = 0;
-            let sumCx = 0;
-            let sumCy = 0;
             
             for (let i = 0; i < polygonPoints.length; i++) {
                 const p1 = polygonPoints[i];
                 const p2 = polygonPoints[(i + 1) % polygonPoints.length];
                 const cross = p1.x * p2.y - p2.x * p1.y;
                 sumArea += cross;
-                sumCx += (p1.x + p2.x) * cross;
-                sumCy += (p1.y + p2.y) * cross;
             }
             
             const signedArea = sumArea / 2.0;
             const area = Math.abs(signedArea);
             
-            if (area === 0) {
-                const avgX = polygonPoints.reduce((sum, p) => sum + p.x, 0) / polygonPoints.length;
-                const avgY = polygonPoints.reduce((sum, p) => sum + p.y, 0) / polygonPoints.length;
-                return { area: 0, x: avgX, y: avgY };
-            }
+            // Calculate centroid using Medoid method (guaranteed to be inside)
+            const medoidCenter = calculateMedoid(polygonPoints);
             
-            const centroid_x = sumCx / (6.0 * signedArea);
-            const centroid_y = sumCy / (6.0 * signedArea);
-            
-            return { area, x: centroid_x, y: centroid_y };
+            return { area, x: medoidCenter.x, y: medoidCenter.y };
         }
 
         // Adaptive area calculation - automatically detects open vs closed shapes
@@ -530,35 +567,25 @@
             const closureThreshold = avgSegmentLength * 2.0;
             
             if (closureDistance <= closureThreshold) {
-                // Shape appears closed - use traditional Shoelace with direct closure
+                // Shape appears closed - use traditional Shoelace with direct closure for area
                 const closedPoints = [...unitPoints, unitPoints[0]];
                 
                 let sumArea = 0;
-                let sumCx = 0;
-                let sumCy = 0;
                 
                 for (let i = 0; i < closedPoints.length - 1; i++) {
                     const p1 = closedPoints[i];
                     const p2 = closedPoints[i + 1];
                     const cross = p1.x * p2.y - p2.x * p1.y;
                     sumArea += cross;
-                    sumCx += (p1.x + p2.x) * cross;
-                    sumCy += (p1.y + p2.y) * cross;
                 }
                 
                 const signedArea = sumArea / 2.0;
                 const area = Math.abs(signedArea);
                 
-                if (area === 0) {
-                    const avgX = unitPoints.reduce((sum, p) => sum + p.x, 0) / unitPoints.length;
-                    const avgY = unitPoints.reduce((sum, p) => sum + p.y, 0) / unitPoints.length;
-                    return { area: 0, x: avgX, y: avgY };
-                }
+                // Calculate centroid using Medoid method (guaranteed to be inside)
+                const medoidCenter = calculateMedoid(unitPoints);
                 
-                const centroid_x = sumCx / (6.0 * signedArea);
-                const centroid_y = sumCy / (6.0 * signedArea);
-                
-                return { area, x: centroid_x, y: centroid_y };
+                return { area, x: medoidCenter.x, y: medoidCenter.y };
             } else {
                 // Shape is clearly open - use convex hull for more natural area calculation
                 const hull = convexHull(unitPoints);
