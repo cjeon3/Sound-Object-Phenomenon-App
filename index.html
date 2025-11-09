@@ -685,6 +685,189 @@
             return { x: currentX, y: currentY };
         }
 
+        // ============================================
+        // ADAPTIVE AREA CALCULATION SYSTEM
+        // ============================================
+        
+        // Helper: Calculate path length
+        function calculatePathLength(unitPoints) {
+            let length = 0;
+            for (let i = 0; i < unitPoints.length - 1; i++) {
+                const p1 = unitPoints[i];
+                const p2 = unitPoints[i + 1];
+                length += Math.sqrt((p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2);
+            }
+            return length;
+        }
+        
+        // Helper: Check if shape is closed
+        function isShapeClosed(unitPoints) {
+            if (unitPoints.length < 10) return false;
+            
+            const first = unitPoints[0];
+            const last = unitPoints[unitPoints.length - 1];
+            
+            const closureDistance = Math.sqrt(
+                (last.x - first.x) ** 2 + (last.y - first.y) ** 2
+            );
+            
+            // Calculate average segment length
+            const pathLength = calculatePathLength(unitPoints);
+            const avgSegment = pathLength / (unitPoints.length - 1);
+            
+            return closureDistance <= avgSegment * 2.0;
+        }
+        
+        // Method 1: Brush-Aware Ribbon Area (for open shapes or thin lines)
+        function calculateBrushAwareArea(unitPoints, brushSize) {
+            if (unitPoints.length < 2) return 0;
+            
+            const brushRadius = brushSize / SCALE_FACTOR / 2;
+            
+            // Calculate path length
+            const pathLength = calculatePathLength(unitPoints);
+            
+            // Area = path length × brush diameter
+            const ribbonArea = pathLength * (brushRadius * 2);
+            
+            // Add area of circular caps at endpoints
+            const capArea = Math.PI * brushRadius * brushRadius * 2;
+            
+            return ribbonArea + capArea;
+        }
+        
+        // Method 2: Pixel-Based Area (most accurate, for thick brushes)
+        function calculatePixelBasedArea(unitPoints, brushSize, resolution = 0.15) {
+            if (unitPoints.length === 0) return 0;
+            
+            const brushRadius = brushSize / SCALE_FACTOR / 2;
+            
+            // Find bounding box
+            let minX = unitPoints[0].x, maxX = unitPoints[0].x;
+            let minY = unitPoints[0].y, maxY = unitPoints[0].y;
+            
+            for (const p of unitPoints) {
+                minX = Math.min(minX, p.x);
+                maxX = Math.max(maxX, p.x);
+                minY = Math.min(minY, p.y);
+                maxY = Math.max(maxY, p.y);
+            }
+            
+            // Expand bounding box by brush radius
+            minX -= brushRadius;
+            maxX += brushRadius;
+            minY -= brushRadius;
+            maxY += brushRadius;
+            
+            // Sample grid and count "painted" cells
+            let paintedCells = 0;
+            
+            for (let x = minX; x <= maxX; x += resolution) {
+                for (let y = minY; y <= maxY; y += resolution) {
+                    // Check if this point is within brush distance of any path point
+                    let isPainted = false;
+                    
+                    for (const p of unitPoints) {
+                        const dist = Math.sqrt((x - p.x) ** 2 + (y - p.y) ** 2);
+                        if (dist <= brushRadius) {
+                            isPainted = true;
+                            break;
+                        }
+                    }
+                    
+                    if (isPainted) {
+                        paintedCells++;
+                    }
+                }
+            }
+            
+            // Area = number of cells × cell area
+            const cellArea = resolution * resolution;
+            return paintedCells * cellArea;
+        }
+        
+        // Method 3: Hybrid Area (polygon + brush perimeter, for closed shapes)
+        function calculateHybridArea(unitPoints, brushSize) {
+            if (unitPoints.length < 3) {
+                return calculateBrushAwareArea(unitPoints, brushSize);
+            }
+            
+            const brushRadius = brushSize / SCALE_FACTOR / 2;
+            
+            // Calculate polygon area (interior)
+            let polygonArea = 0;
+            for (let i = 0; i < unitPoints.length; i++) {
+                const p1 = unitPoints[i];
+                const p2 = unitPoints[(i + 1) % unitPoints.length];
+                polygonArea += p1.x * p2.y - p2.x * p1.y;
+            }
+            polygonArea = Math.abs(polygonArea) / 2;
+            
+            // Calculate perimeter length
+            let perimeter = 0;
+            for (let i = 0; i < unitPoints.length; i++) {
+                const p1 = unitPoints[i];
+                const p2 = unitPoints[(i + 1) % unitPoints.length];
+                perimeter += Math.sqrt((p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2);
+            }
+            
+            // Total area = polygon interior + perimeter band
+            const perimeterBandArea = perimeter * brushRadius * 2;
+            
+            // Add approximate area of corners
+            const cornerArea = Math.PI * brushRadius * brushRadius;
+            
+            return polygonArea + perimeterBandArea + cornerArea;
+        }
+        
+        // Method 4: Pure Polygon Area (for very thin brushes)
+        function calculatePolygonArea(unitPoints) {
+            if (unitPoints.length < 3) return 0;
+            
+            let area = 0;
+            for (let i = 0; i < unitPoints.length; i++) {
+                const p1 = unitPoints[i];
+                const p2 = unitPoints[(i + 1) % unitPoints.length];
+                area += p1.x * p2.y - p2.x * p1.y;
+            }
+            return Math.abs(area) / 2;
+        }
+        
+        // ADAPTIVE AREA: Automatically chooses best method based on characteristics
+        function calculateAdaptiveArea(unitPoints, brushSize) {
+            if (unitPoints.length < 2) return 0;
+            
+            const brushRadius = brushSize / SCALE_FACTOR / 2;
+            const aspectRatio = calculateAspectRatio(unitPoints);
+            const isClosed = isShapeClosed(unitPoints);
+            
+            // Decision tree based on brush size and shape properties
+            if (brushSize <= 3) {
+                // Very thin brush - polygon area is accurate enough
+                if (isClosed && unitPoints.length >= 3) {
+                    return calculatePolygonArea(unitPoints);
+                } else {
+                    // Open shape with thin brush - minimal area
+                    return calculateBrushAwareArea(unitPoints, brushSize);
+                }
+                
+            } else if (brushSize > 8 || aspectRatio > 5) {
+                // Very thick brush OR very elongated shape
+                // Use pixel-based for highest accuracy
+                return calculatePixelBasedArea(unitPoints, brushSize, 0.15);
+                
+            } else if (isClosed) {
+                // Closed shape with moderate brush
+                // Use hybrid (polygon + perimeter)
+                return calculateHybridArea(unitPoints, brushSize);
+                
+            } else {
+                // Open shape with moderate brush
+                // Use brush-aware ribbon
+                return calculateBrushAwareArea(unitPoints, brushSize);
+            }
+        }
+
         // Convex Hull calculation using Graham Scan algorithm
         function convexHull(points) {
             if (points.length <= 3) return points;
@@ -726,24 +909,14 @@
             return lower.concat(upper);
         }
 
-        // Calculate area and centroid using Shoelace formula for area, Adaptive Centroid for center
+        // Calculate area and centroid using Adaptive methods for both
         function calculatePolygonAreaAndCentroid(polygonPoints) {
             if (polygonPoints.length < 3) return { area: 0, x: 0, y: 0 };
             
-            // Calculate area using Shoelace formula
-            let sumArea = 0;
+            // Calculate area using Adaptive Area method
+            const area = calculateAdaptiveArea(polygonPoints, brushSize);
             
-            for (let i = 0; i < polygonPoints.length; i++) {
-                const p1 = polygonPoints[i];
-                const p2 = polygonPoints[(i + 1) % polygonPoints.length];
-                const cross = p1.x * p2.y - p2.x * p1.y;
-                sumArea += cross;
-            }
-            
-            const signedArea = sumArea / 2.0;
-            const area = Math.abs(signedArea);
-            
-            // Calculate centroid using Adaptive method (automatically chooses best algorithm)
+            // Calculate centroid using Adaptive Centroid method
             const adaptiveCenter = calculateAdaptiveCentroid(polygonPoints, brushSize);
             
             return { area, x: adaptiveCenter.x, y: adaptiveCenter.y };
@@ -779,20 +952,8 @@
             const closureThreshold = avgSegmentLength * 2.0;
             
             if (closureDistance <= closureThreshold) {
-                // Shape appears closed - use traditional Shoelace with direct closure for area
-                const closedPoints = [...unitPoints, unitPoints[0]];
-                
-                let sumArea = 0;
-                
-                for (let i = 0; i < closedPoints.length - 1; i++) {
-                    const p1 = closedPoints[i];
-                    const p2 = closedPoints[i + 1];
-                    const cross = p1.x * p2.y - p2.x * p1.y;
-                    sumArea += cross;
-                }
-                
-                const signedArea = sumArea / 2.0;
-                const area = Math.abs(signedArea);
+                // Shape appears closed - use Adaptive Area calculation
+                const area = calculateAdaptiveArea(unitPoints, brushSize);
                 
                 // Calculate centroid using Adaptive method (automatically chooses best algorithm)
                 const adaptiveCenter = calculateAdaptiveCentroid(unitPoints, brushSize);
