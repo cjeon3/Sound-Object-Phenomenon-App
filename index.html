@@ -427,19 +427,58 @@
         }
 
         // Calculate centroid using shoelace formula
-        function calculateCentroid(points) {
-            if (points.length < 3) return { area: 0, x: 0, y: 0 };
+        // Convex Hull calculation using Graham Scan algorithm
+        function convexHull(points) {
+            if (points.length <= 3) return points;
             
-            const unitPoints = points.map(p => canvasToUnit(p.x, p.y));
-            const closedPoints = [...unitPoints, unitPoints[0]];
+            // Sort points by x-coordinate (and y if x is equal)
+            const sorted = points.slice().sort((a, b) => 
+                a.x === b.x ? a.y - b.y : a.x - b.x
+            );
+            
+            // Cross product to determine turn direction
+            const cross = (o, a, b) => 
+                (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+            
+            // Build lower hull
+            const lower = [];
+            for (const p of sorted) {
+                while (lower.length >= 2 && 
+                       cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) {
+                    lower.pop();
+                }
+                lower.push(p);
+            }
+            
+            // Build upper hull
+            const upper = [];
+            for (let i = sorted.length - 1; i >= 0; i--) {
+                const p = sorted[i];
+                while (upper.length >= 2 && 
+                       cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) {
+                    upper.pop();
+                }
+                upper.push(p);
+            }
+            
+            // Remove last point of each half because it's repeated
+            lower.pop();
+            upper.pop();
+            
+            return lower.concat(upper);
+        }
+
+        // Calculate area and centroid using Shoelace formula on a closed polygon
+        function calculatePolygonAreaAndCentroid(polygonPoints) {
+            if (polygonPoints.length < 3) return { area: 0, x: 0, y: 0 };
             
             let sumArea = 0;
             let sumCx = 0;
             let sumCy = 0;
             
-            for (let i = 0; i < closedPoints.length - 1; i++) {
-                const p1 = closedPoints[i];
-                const p2 = closedPoints[i + 1];
+            for (let i = 0; i < polygonPoints.length; i++) {
+                const p1 = polygonPoints[i];
+                const p2 = polygonPoints[(i + 1) % polygonPoints.length];
                 const cross = p1.x * p2.y - p2.x * p1.y;
                 sumArea += cross;
                 sumCx += (p1.x + p2.x) * cross;
@@ -450,8 +489,8 @@
             const area = Math.abs(signedArea);
             
             if (area === 0) {
-                const avgX = unitPoints.reduce((sum, p) => sum + p.x, 0) / unitPoints.length;
-                const avgY = unitPoints.reduce((sum, p) => sum + p.y, 0) / unitPoints.length;
+                const avgX = polygonPoints.reduce((sum, p) => sum + p.x, 0) / polygonPoints.length;
+                const avgY = polygonPoints.reduce((sum, p) => sum + p.y, 0) / polygonPoints.length;
                 return { area: 0, x: avgX, y: avgY };
             }
             
@@ -459,6 +498,72 @@
             const centroid_y = sumCy / (6.0 * signedArea);
             
             return { area, x: centroid_x, y: centroid_y };
+        }
+
+        // Adaptive area calculation - automatically detects open vs closed shapes
+        function calculateCentroid(points) {
+            if (points.length < 3) return { area: 0, x: 0, y: 0 };
+            
+            const unitPoints = points.map(p => canvasToUnit(p.x, p.y));
+            
+            // Calculate closure distance
+            const first = unitPoints[0];
+            const last = unitPoints[unitPoints.length - 1];
+            const closureDistance = Math.sqrt(
+                (last.x - first.x) ** 2 + (last.y - first.y) ** 2
+            );
+            
+            // Calculate average segment length for reference
+            let totalSegmentLength = 0;
+            for (let i = 0; i < unitPoints.length - 1; i++) {
+                const p1 = unitPoints[i];
+                const p2 = unitPoints[i + 1];
+                const segmentLength = Math.sqrt(
+                    (p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2
+                );
+                totalSegmentLength += segmentLength;
+            }
+            const avgSegmentLength = totalSegmentLength / (unitPoints.length - 1);
+            
+            // Threshold: if endpoints are within 2x average segment length, treat as closed
+            // This is tunable - increase for stricter closure requirements
+            const closureThreshold = avgSegmentLength * 2.0;
+            
+            if (closureDistance <= closureThreshold) {
+                // Shape appears closed - use traditional Shoelace with direct closure
+                const closedPoints = [...unitPoints, unitPoints[0]];
+                
+                let sumArea = 0;
+                let sumCx = 0;
+                let sumCy = 0;
+                
+                for (let i = 0; i < closedPoints.length - 1; i++) {
+                    const p1 = closedPoints[i];
+                    const p2 = closedPoints[i + 1];
+                    const cross = p1.x * p2.y - p2.x * p1.y;
+                    sumArea += cross;
+                    sumCx += (p1.x + p2.x) * cross;
+                    sumCy += (p1.y + p2.y) * cross;
+                }
+                
+                const signedArea = sumArea / 2.0;
+                const area = Math.abs(signedArea);
+                
+                if (area === 0) {
+                    const avgX = unitPoints.reduce((sum, p) => sum + p.x, 0) / unitPoints.length;
+                    const avgY = unitPoints.reduce((sum, p) => sum + p.y, 0) / unitPoints.length;
+                    return { area: 0, x: avgX, y: avgY };
+                }
+                
+                const centroid_x = sumCx / (6.0 * signedArea);
+                const centroid_y = sumCy / (6.0 * signedArea);
+                
+                return { area, x: centroid_x, y: centroid_y };
+            } else {
+                // Shape is clearly open - use convex hull for more natural area calculation
+                const hull = convexHull(unitPoints);
+                return calculatePolygonAreaAndCentroid(hull);
+            }
         }
 
         // Drawing functions
