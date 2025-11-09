@@ -1323,6 +1323,7 @@
         }
         
         // Helper: Check if shape is closed (improved with multiple criteria)
+        // BALANCED closure detection - filters out C-shapes but allows human imperfection
         function isShapeClosed(unitPoints) {
             if (unitPoints.length < 10) return false;
             
@@ -1338,132 +1339,55 @@
             const avgSegment = pathLength / (unitPoints.length - 1);
             
             // DEBUG LOGGING
-            console.log("=== CLOSURE DETECTION ===");
+            console.log("\n=== BALANCED CLOSURE DETECTION ===");
             console.log("Points:", unitPoints.length);
             console.log("Path length:", pathLength.toFixed(3), "units");
             console.log("Closure distance:", closureDistance.toFixed(3), "units");
             console.log("Avg segment:", avgSegment.toFixed(3), "units");
-            console.log("Threshold (15x):", (avgSegment * 15.0).toFixed(3), "units");
             
-            // Calculate bounding box for gap threshold
-            let minX = unitPoints[0].x, maxX = unitPoints[0].x;
-            let minY = unitPoints[0].y, maxY = unitPoints[0].y;
+            // Calculate gap as percentage of path length
+            const gapPercentage = (closureDistance / pathLength) * 100;
+            console.log("Gap as % of path:", gapPercentage.toFixed(1), "%");
             
-            for (const p of unitPoints) {
-                minX = Math.min(minX, p.x);
-                maxX = Math.max(maxX, p.x);
-                minY = Math.min(minY, p.y);
-                maxY = Math.max(maxY, p.y);
-            }
+            // Calculate total angle change (rotation)
+            let totalAngleChange = 0;
             
-            const maxDimension = Math.max(maxX - minX, maxY - minY);
-            
-            // Determine if gap is reasonable for closure using multiple criteria
-            // 1. Gap < 50% of shape dimension (prevents crossing entire shape)
-            const gapVsDimension = closureDistance / maxDimension;
-            // 2. Gap < 20% of total path length (catches incomplete shapes with small gaps)
-            const gapVsPathLength = closureDistance / pathLength;
-            
-            // Gap is reasonable if EITHER criterion passes
-            const gapIsReasonable = (gapVsDimension < 0.50) || (gapVsPathLength < 0.20);
-            
-            console.log("Gap vs dimension:", (gapVsDimension * 100).toFixed(1), "%");
-            console.log("Gap vs path length:", (gapVsPathLength * 100).toFixed(1), "%");
-            
-            // Criterion 1: Direct closure check (extremely lenient)
-            // Allow gap up to 15x average segment - handles most human imperfection
-            const directClosure = closureDistance <= avgSegment * 15.0;
-            
-            if (directClosure) {
-                console.log("✓ CLOSED (Criterion 1: Direct closure)");
+            for (let i = 1; i < unitPoints.length - 1; i++) {
+                const p0 = unitPoints[i - 1];
+                const p1 = unitPoints[i];
+                const p2 = unitPoints[i + 1];
                 
-                // Add straight-line closure for ALL shapes if gap is reasonable
-                if (closureDistance > avgSegment * 0.5 && gapIsReasonable) {
-                    console.log("  → Adding straight-line closure (gap:", closureDistance.toFixed(3), "units)");
-                    const steps = Math.max(3, Math.ceil(closureDistance / avgSegment));
-                    for (let i = 1; i < steps; i++) {
-                        const t = i / steps;
-                        unitPoints.push({
-                            x: last.x + (first.x - last.x) * t,
-                            y: last.y + (first.y - last.y) * t
-                        });
-                    }
-                } else if (!gapIsReasonable) {
-                    console.log("  ⚠ Gap too large for closure");
-                }
-                return true;
-            }
-            
-            // Criterion 2: Try intelligent closure for common shapes
-            const closingPath = intelligentShapeClosure(unitPoints);
-            if (closingPath && closingPath.length > 0) {
-                console.log("✓ CLOSED (Intelligent closure: shape completed)");
-                // Add closing points to the original points
-                for (const p of closingPath) {
-                    unitPoints.push(p);
-                }
-                return true;
-            }
-            
-            // Criterion 3: Rotation analysis
-            // If shape rotates significantly, assume user intended closure
-            if (closureDistance <= avgSegment * 20.0) {
-                // Check if the path goes around (changes direction significantly)
-                // Calculate total angle change along path
-                let totalAngleChange = 0;
+                const v1x = p1.x - p0.x;
+                const v1y = p1.y - p0.y;
+                const v2x = p2.x - p1.x;
+                const v2y = p2.y - p1.y;
                 
-                for (let i = 1; i < unitPoints.length - 1; i++) {
-                    const p0 = unitPoints[i - 1];
-                    const p1 = unitPoints[i];
-                    const p2 = unitPoints[i + 1];
-                    
-                    const v1x = p1.x - p0.x;
-                    const v1y = p1.y - p0.y;
-                    const v2x = p2.x - p1.x;
-                    const v2y = p2.y - p1.y;
-                    
-                    const mag1 = Math.sqrt(v1x * v1x + v1y * v1y);
-                    const mag2 = Math.sqrt(v2x * v2x + v2y * v2y);
-                    
-                    if (mag1 > 0 && mag2 > 0) {
-                        const dot = v1x * v2x + v1y * v2y;
-                        const cosAngle = dot / (mag1 * mag2);
-                        const angle = Math.acos(Math.max(-1, Math.min(1, cosAngle)));
-                        totalAngleChange += angle;
-                    }
-                }
+                const mag1 = Math.sqrt(v1x * v1x + v1y * v1y);
+                const mag2 = Math.sqrt(v2x * v2x + v2y * v2y);
                 
-                // If total angle change is close to 2π (360°), it's a closed loop
-                // Allow for approximately one full rotation (±50%)
-                const fullRotation = 2 * Math.PI;
-                if (totalAngleChange > fullRotation * 0.5) {
-                    console.log("✓ CLOSED (Criterion 3: Rotation analysis)");
-                    
-                    // Add straight-line closure if gap is reasonable
-                    if (closureDistance > avgSegment * 0.5 && gapIsReasonable) {
-                        console.log("  → Adding straight-line closure (gap:", closureDistance.toFixed(3), "units)");
-                        const steps = Math.max(3, Math.ceil(closureDistance / avgSegment));
-                        for (let i = 1; i < steps; i++) {
-                            const t = i / steps;
-                            unitPoints.push({
-                                x: last.x + (first.x - last.x) * t,
-                                y: last.y + (first.y - last.y) * t
-                            });
-                        }
-                    }
-                    return true; // Likely intended as closed
+                if (mag1 > 0 && mag2 > 0) {
+                    const dot = v1x * v2x + v1y * v2y;
+                    const cosAngle = dot / (mag1 * mag2);
+                    const angle = Math.acos(Math.max(-1, Math.min(1, cosAngle)));
+                    totalAngleChange += angle;
                 }
             }
             
-            // Criterion 4: Check if bounding box suggests closed shape
-            // If closure gap is less than 50% of max dimension, treat as closed
-            // This is extremely lenient - only truly open/incomplete shapes will fail
-            if (closureDistance < maxDimension * 0.50) {
-                console.log("✓ CLOSED (Criterion 4: Bounding box < 50%)");
+            const fullRotation = 2 * Math.PI;
+            const rotationPercentage = (totalAngleChange / fullRotation) * 100;
+            console.log("Total rotation:", rotationPercentage.toFixed(1), "% of full circle");
+            
+            // BALANCED APPROACH: Use combination of gap AND rotation
+            // This allows human imperfection while filtering out C-shapes
+            
+            // Strategy 1: Very tight closure (always closed, regardless of rotation)
+            // Handles nearly-perfect circles drawn by humans
+            if (gapPercentage < 2.0) {
+                console.log("✓ CLOSED (Strategy 1: Very tight gap <2%)");
+                console.log("  → Nearly perfect closure detected");
                 
-                // Add straight-line closure if gap is reasonable (already checked above)
-                if (closureDistance > avgSegment * 0.5 && gapIsReasonable) {
-                    console.log("  → Adding straight-line closure (gap:", closureDistance.toFixed(3), "units)");
+                // Add minimal closure if needed
+                if (closureDistance > avgSegment * 0.5) {
                     const steps = Math.max(3, Math.ceil(closureDistance / avgSegment));
                     for (let i = 1; i < steps; i++) {
                         const t = i / steps;
@@ -1476,26 +1400,55 @@
                 return true;
             }
             
-            console.log("✗ OPEN (all criteria failed - gap is unnaturally large)");
+            // Strategy 2: Good rotation with reasonable gap
+            // Gap < 10% AND rotation > 70% → Closed (human-drawn circle with imperfect closure)
+            // This is the sweet spot for human-drawn shapes
+            if (gapPercentage < 10.0 && rotationPercentage >= 70.0) {
+                console.log("✓ CLOSED (Strategy 2: Good gap", gapPercentage.toFixed(1), "% + rotation", rotationPercentage.toFixed(1), "%)");
+                console.log("  → Human-drawn shape with enclosed area detected");
+                
+                // Add straight-line closure
+                if (closureDistance > avgSegment * 0.5) {
+                    console.log("  → Adding straight-line closure");
+                    const steps = Math.max(3, Math.ceil(closureDistance / avgSegment));
+                    for (let i = 1; i < steps; i++) {
+                        const t = i / steps;
+                        unitPoints.push({
+                            x: last.x + (first.x - last.x) * t,
+                            y: last.y + (first.y - last.y) * t
+                        });
+                    }
+                }
+                return true;
+            }
+            
+            // Strategy 3: Excellent rotation with slightly larger gap
+            // Gap < 15% AND rotation > 85% → Closed (almost complete circle, just messy ending)
+            if (gapPercentage < 15.0 && rotationPercentage >= 85.0) {
+                console.log("✓ CLOSED (Strategy 3: Excellent rotation", rotationPercentage.toFixed(1), "% compensates for gap", gapPercentage.toFixed(1), "%)");
+                console.log("  → Nearly complete rotation with messy ending");
+                
+                // Add straight-line closure
+                if (closureDistance > avgSegment * 0.5) {
+                    console.log("  → Adding straight-line closure");
+                    const steps = Math.max(3, Math.ceil(closureDistance / avgSegment));
+                    for (let i = 1; i < steps; i++) {
+                        const t = i / steps;
+                        unitPoints.push({
+                            x: last.x + (first.x - last.x) * t,
+                            y: last.y + (first.y - last.y) * t
+                        });
+                    }
+                }
+                return true;
+            }
+            
+            // All strategies failed - this is a clearly open shape (C, line, etc.)
+            console.log("✗ OPEN (Gap:", gapPercentage.toFixed(1), "%, Rotation:", rotationPercentage.toFixed(1), "%)");
+            console.log("  → Shape is open (C-shape or single line) - area will be 0");
+            console.log("  → Typical C-shape: gap 15-25%, rotation 50-65%");
+            console.log("  → Typical closed shape: gap <10%, rotation >70%");
             return false;
-        }
-        
-        // Method 1: Brush-Aware Ribbon Area (for open shapes or thin lines)
-        function calculateBrushAwareArea(unitPoints, brushSize) {
-            if (unitPoints.length < 2) return 0;
-            
-            const brushRadius = brushSize / SCALE_FACTOR / 2;
-            
-            // Calculate path length
-            const pathLength = calculatePathLength(unitPoints);
-            
-            // Area = path length × brush diameter
-            const ribbonArea = pathLength * (brushRadius * 2);
-            
-            // Add area of circular caps at endpoints
-            const capArea = Math.PI * brushRadius * brushRadius * 2;
-            
-            return ribbonArea + capArea;
         }
         
         // Helper function to calculate distance from point to line segment
@@ -1521,8 +1474,25 @@
             return Math.sqrt((px - closestX) * (px - closestX) + (py - closestY) * (py - closestY));
         }
         
+        // Method 1: Brush-Aware Ribbon Area (for open shapes or thin lines)
+        function calculateBrushAwareArea(unitPoints, brushSize) {
+            if (unitPoints.length < 2) return 0;
+            
+            const brushRadius = brushSize / SCALE_FACTOR / 2;
+            
+            // Calculate path length
+            const pathLength = calculatePathLength(unitPoints);
+            
+            // Area = path length × brush diameter
+            const ribbonArea = pathLength * (brushRadius * 2);
+            
+            // Add area of circular caps at endpoints
+            const capArea = Math.PI * brushRadius * brushRadius * 2;
+            
+            return ribbonArea + capArea;
+        }
+        
         // Method 2: Pixel-Based Area (most accurate, for all shapes)
-        // FIXED: Now properly accounts for curved paths by checking distance to line segments
         function calculatePixelBasedArea(unitPoints, brushSize, resolution = null) {
             if (unitPoints.length === 0) return 0;
             
@@ -1535,7 +1505,7 @@
             const brushRadius = fullBrushRadius;
             
             // DEBUG LOGGING
-            console.log("=== AREA CALCULATION (FIXED) ===");
+            console.log("=== AREA CALCULATION ===");
             console.log("Brush size (pixels):", brushSize);
             console.log("Brush radius (units):", brushRadius.toFixed(4));
             console.log("Brush diameter (units):", (brushRadius * 2).toFixed(4));
@@ -1938,9 +1908,14 @@
                 
                 return { area, x: adaptiveCenter.x, y: adaptiveCenter.y };
             } else {
-                // Shape is clearly open - use convex hull for more natural area calculation
-                const hull = convexHull(unitPoints);
-                return calculatePolygonAreaAndCentroid(hull);
+                // Shape is OPEN (C-shape, single line, etc.) - return area = 0
+                console.log("✗ OPEN SHAPE DETECTED - Returning area = 0");
+                
+                // Calculate centroid as simple average of points (for display only)
+                const avgX = unitPoints.reduce((sum, p) => sum + p.x, 0) / unitPoints.length;
+                const avgY = unitPoints.reduce((sum, p) => sum + p.y, 0) / unitPoints.length;
+                
+                return { area: 0, x: avgX, y: avgY };
             }
         }
 
