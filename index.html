@@ -761,28 +761,32 @@
             const areaVariation = calculateAreaVariation(unitPoints, brushSize);
             
             // Decision tree based on shape properties (5 methods)
+            // Priority: Area-weighted is now default for most cases
+            
             if (aspectRatio > 3.0) {
                 // Very elongated shape - use skeleton-constrained
                 // Examples: snake-like curves, long arcs
                 return calculateSkeletonConstrainedCenter(unitPoints);
                 
-            } else if (areaVariation > 0.6) {
-                // High area variation - use area-weighted medoid
-                // Examples: blobs with tails, shapes with thick/thin parts
+            } else if (areaVariation > 0.3) {
+                // Area variation detected - use area-weighted medoid
+                // LOWERED from 0.6 to 0.3 - now catches most shapes!
+                // Examples: most irregular shapes, blobs, any thickness variation
                 return calculateAreaWeightedMedoid(unitPoints, brushSize);
                 
-            } else if (densityVariance > 0.5) {
-                // High density variation - use weighted medoid
-                // Examples: shapes with thick and thin parts
-                return calculateWeightedMedoid(unitPoints);
-                
             } else if (brushSize > 5) {
-                // Thick strokes - use brush-aware medoid
+                // Thick strokes without area variation - use brush-aware medoid
                 // Better represents visual mass
                 return calculateBrushAwareMedoid(unitPoints, brushSize);
                 
+            } else if (densityVariance > 0.5) {
+                // High density variation - use weighted medoid
+                // Examples: shapes with dense and sparse regions
+                return calculateWeightedMedoid(unitPoints);
+                
             } else {
-                // Standard case - basic medoid
+                // Very uniform shape - basic medoid
+                // Only reached for very simple, uniform shapes
                 return calculateMedoid(unitPoints);
             }
         }
