@@ -427,6 +427,218 @@
         }
 
         // Calculate centroid using shoelace formula
+        // ============================================
+        // ADAPTIVE CENTROID CALCULATION SYSTEM
+        // ============================================
+        
+        // Helper: Calculate aspect ratio of bounding box
+        function calculateAspectRatio(unitPoints) {
+            if (unitPoints.length === 0) return 1.0;
+            
+            let minX = unitPoints[0].x, maxX = unitPoints[0].x;
+            let minY = unitPoints[0].y, maxY = unitPoints[0].y;
+            
+            for (const p of unitPoints) {
+                minX = Math.min(minX, p.x);
+                maxX = Math.max(maxX, p.x);
+                minY = Math.min(minY, p.y);
+                maxY = Math.max(maxY, p.y);
+            }
+            
+            const width = maxX - minX;
+            const height = maxY - minY;
+            
+            if (width === 0 || height === 0) return 1.0;
+            
+            return Math.max(width / height, height / width);
+        }
+        
+        // Helper: Calculate density variance (how much point density varies)
+        function calculateDensityVariance(unitPoints) {
+            if (unitPoints.length < 5) return 0;
+            
+            const densities = [];
+            const radius = 0.5; // Check within 0.5 unit radius
+            
+            for (let i = 0; i < unitPoints.length; i++) {
+                let count = 0;
+                for (let j = 0; j < unitPoints.length; j++) {
+                    if (i === j) continue;
+                    const dist = Math.sqrt(
+                        (unitPoints[i].x - unitPoints[j].x) ** 2 + 
+                        (unitPoints[i].y - unitPoints[j].y) ** 2
+                    );
+                    if (dist < radius) count++;
+                }
+                densities.push(count);
+            }
+            
+            // Calculate coefficient of variation
+            const mean = densities.reduce((sum, d) => sum + d, 0) / densities.length;
+            if (mean === 0) return 0;
+            
+            const variance = densities.reduce((sum, d) => sum + (d - mean) ** 2, 0) / densities.length;
+            return Math.sqrt(variance) / mean;
+        }
+        
+        // Weighted Medoid: Points in dense areas have more influence
+        function calculateWeightedMedoid(unitPoints, maxIterations = 50, tolerance = 0.001) {
+            if (unitPoints.length < 3) {
+                return calculateMedoid(unitPoints, maxIterations, tolerance);
+            }
+            
+            // Calculate local density for each point
+            const pointWeights = [];
+            const neighborhoodRadius = 0.5;
+            
+            for (let i = 0; i < unitPoints.length; i++) {
+                let neighborCount = 0;
+                for (let j = 0; j < unitPoints.length; j++) {
+                    if (i === j) continue;
+                    const dist = Math.sqrt(
+                        (unitPoints[i].x - unitPoints[j].x) ** 2 + 
+                        (unitPoints[i].y - unitPoints[j].y) ** 2
+                    );
+                    if (dist < neighborhoodRadius) {
+                        neighborCount++;
+                    }
+                }
+                // More neighbors = higher weight (denser area)
+                pointWeights.push(1 + neighborCount * 0.1);
+            }
+            
+            // Initialize with weighted geometric centroid
+            let totalWeight = pointWeights.reduce((sum, w) => sum + w, 0);
+            let currentX = unitPoints.reduce((sum, p, i) => sum + p.x * pointWeights[i], 0) / totalWeight;
+            let currentY = unitPoints.reduce((sum, p, i) => sum + p.y * pointWeights[i], 0) / totalWeight;
+            
+            // Weighted Weiszfeld's algorithm
+            for (let iter = 0; iter < maxIterations; iter++) {
+                let numeratorX = 0;
+                let numeratorY = 0;
+                let denominator = 0;
+                
+                for (let i = 0; i < unitPoints.length; i++) {
+                    const p = unitPoints[i];
+                    const dist = Math.sqrt((p.x - currentX) ** 2 + (p.y - currentY) ** 2);
+                    
+                    if (dist < 1e-10) continue;
+                    
+                    const weight = pointWeights[i] / dist;
+                    numeratorX += p.x * weight;
+                    numeratorY += p.y * weight;
+                    denominator += weight;
+                }
+                
+                if (denominator === 0) break;
+                
+                const newX = numeratorX / denominator;
+                const newY = numeratorY / denominator;
+                
+                const change = Math.sqrt((newX - currentX) ** 2 + (newY - currentY) ** 2);
+                
+                currentX = newX;
+                currentY = newY;
+                
+                if (change < tolerance) break;
+            }
+            
+            return { x: currentX, y: currentY };
+        }
+        
+        // Skeleton-Constrained: For elongated shapes, follows the "spine"
+        function calculateSkeletonConstrainedCenter(unitPoints) {
+            if (unitPoints.length < 10) {
+                return calculateMedoid(unitPoints);
+            }
+            
+            // Create skeleton points by averaging neighborhoods along path
+            const skeletonPoints = [];
+            const windowSize = Math.min(10, Math.floor(unitPoints.length / 5));
+            
+            for (let i = 0; i < unitPoints.length; i++) {
+                let sumX = 0, sumY = 0, count = 0;
+                
+                for (let j = Math.max(0, i - windowSize); 
+                     j < Math.min(unitPoints.length, i + windowSize + 1); 
+                     j++) {
+                    sumX += unitPoints[j].x;
+                    sumY += unitPoints[j].y;
+                    count++;
+                }
+                
+                skeletonPoints.push({
+                    x: sumX / count,
+                    y: sumY / count
+                });
+            }
+            
+            // Calculate medoid of skeleton points
+            return calculateMedoid(skeletonPoints);
+        }
+        
+        // Brush-Aware: Accounts for visual mass of brush strokes
+        function calculateBrushAwareMedoid(unitPoints, brushSize, maxIterations = 50) {
+            const brushRadius = brushSize / SCALE_FACTOR / 2;
+            
+            // Create expanded points by sampling around each stroke point
+            const expandedPoints = [];
+            const angularSamples = 8; // Sample 8 points around each center
+            
+            // Limit sampling to avoid too many points (performance)
+            const stride = Math.max(1, Math.floor(unitPoints.length / 100));
+            
+            for (let i = 0; i < unitPoints.length; i += stride) {
+                const p = unitPoints[i];
+                expandedPoints.push(p); // Include center
+                
+                // Add points around the circumference at brush radius
+                for (let j = 0; j < angularSamples; j++) {
+                    const angle = (j / angularSamples) * 2 * Math.PI;
+                    expandedPoints.push({
+                        x: p.x + brushRadius * Math.cos(angle),
+                        y: p.y + brushRadius * Math.sin(angle)
+                    });
+                }
+            }
+            
+            // Calculate medoid on expanded point set
+            return calculateMedoid(expandedPoints, maxIterations, 0.001);
+        }
+        
+        // ADAPTIVE CENTROID: Automatically chooses best method based on shape characteristics
+        function calculateAdaptiveCentroid(unitPoints, brushSize) {
+            if (unitPoints.length < 3) {
+                if (unitPoints.length === 0) return { x: 0, y: 0 };
+                if (unitPoints.length === 1) return { x: unitPoints[0].x, y: unitPoints[0].y };
+                const avgX = unitPoints.reduce((sum, p) => sum + p.x, 0) / unitPoints.length;
+                const avgY = unitPoints.reduce((sum, p) => sum + p.y, 0) / unitPoints.length;
+                return { x: avgX, y: avgY };
+            }
+            
+            // Analyze shape characteristics
+            const aspectRatio = calculateAspectRatio(unitPoints);
+            const densityVariance = calculateDensityVariance(unitPoints);
+            
+            // Decision tree based on shape properties
+            if (aspectRatio > 3.0) {
+                // Very elongated shape - use skeleton-constrained
+                // Examples: snake-like curves, long arcs
+                return calculateSkeletonConstrainedCenter(unitPoints);
+            } else if (densityVariance > 0.5) {
+                // High density variation - use weighted medoid
+                // Examples: shapes with thick and thin parts
+                return calculateWeightedMedoid(unitPoints);
+            } else if (brushSize > 5) {
+                // Thick strokes - use brush-aware medoid
+                // Better represents visual mass
+                return calculateBrushAwareMedoid(unitPoints, brushSize);
+            } else {
+                // Standard case - basic medoid
+                return calculateMedoid(unitPoints);
+            }
+        }
+        
         // Medoid calculation using Weiszfeld's algorithm
         // Finds the point that minimizes sum of distances to all points
         // This guarantees the centroid is always inside or on the shape
@@ -514,7 +726,7 @@
             return lower.concat(upper);
         }
 
-        // Calculate area and centroid using Shoelace formula for area, Medoid for centroid
+        // Calculate area and centroid using Shoelace formula for area, Adaptive Centroid for center
         function calculatePolygonAreaAndCentroid(polygonPoints) {
             if (polygonPoints.length < 3) return { area: 0, x: 0, y: 0 };
             
@@ -531,10 +743,10 @@
             const signedArea = sumArea / 2.0;
             const area = Math.abs(signedArea);
             
-            // Calculate centroid using Medoid method (guaranteed to be inside)
-            const medoidCenter = calculateMedoid(polygonPoints);
+            // Calculate centroid using Adaptive method (automatically chooses best algorithm)
+            const adaptiveCenter = calculateAdaptiveCentroid(polygonPoints, brushSize);
             
-            return { area, x: medoidCenter.x, y: medoidCenter.y };
+            return { area, x: adaptiveCenter.x, y: adaptiveCenter.y };
         }
 
         // Adaptive area calculation - automatically detects open vs closed shapes
@@ -582,10 +794,10 @@
                 const signedArea = sumArea / 2.0;
                 const area = Math.abs(signedArea);
                 
-                // Calculate centroid using Medoid method (guaranteed to be inside)
-                const medoidCenter = calculateMedoid(unitPoints);
+                // Calculate centroid using Adaptive method (automatically chooses best algorithm)
+                const adaptiveCenter = calculateAdaptiveCentroid(unitPoints, brushSize);
                 
-                return { area, x: medoidCenter.x, y: medoidCenter.y };
+                return { area, x: adaptiveCenter.x, y: adaptiveCenter.y };
             } else {
                 // Shape is clearly open - use convex hull for more natural area calculation
                 const hull = convexHull(unitPoints);
