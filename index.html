@@ -780,63 +780,115 @@
         }
         
         // Convex Hull-Based Centroid for concave shapes (horseshoe, crescent)
+        // ENHANCED: Now ensures centroid is always in visual center/bulk of shape
         function calculateConvexHullCentroid(unitPoints) {
             if (unitPoints.length < 10) {
                 return calculateMedoid(unitPoints);
             }
             
-            // Calculate convex hull
-            const hull = convexHull(unitPoints);
+            // Step 1: Calculate bounding box center as a starting point
+            let minX = unitPoints[0].x, maxX = unitPoints[0].x;
+            let minY = unitPoints[0].y, maxY = unitPoints[0].y;
             
-            if (hull.length < 3) {
-                return calculateMedoid(unitPoints);
+            for (const p of unitPoints) {
+                minX = Math.min(minX, p.x);
+                maxX = Math.max(maxX, p.x);
+                minY = Math.min(minY, p.y);
+                maxY = Math.max(maxY, p.y);
             }
             
-            // Calculate geometric centroid of convex hull (polygon centroid, not just vertex average)
-            // This gives better center for irregular shapes
-            let sumX = 0;
-            let sumY = 0;
-            let signedArea = 0;
+            const bboxCenterX = (minX + maxX) / 2;
+            const bboxCenterY = (minY + maxY) / 2;
             
-            for (let i = 0; i < hull.length; i++) {
-                const p0 = hull[i];
-                const p1 = hull[(i + 1) % hull.length];
-                const cross = p0.x * p1.y - p1.x * p0.y;
-                signedArea += cross;
-                sumX += (p0.x + p1.x) * cross;
-                sumY += (p0.y + p1.y) * cross;
+            // Step 2: Calculate density-weighted center
+            // This finds where most of the "mass" of the drawing is
+            const gridResolution = 0.1;
+            const densityMap = new Map();
+            let maxDensity = 0;
+            
+            for (const p of unitPoints) {
+                const gridX = Math.round(p.x / gridResolution);
+                const gridY = Math.round(p.y / gridResolution);
+                const key = `${gridX},${gridY}`;
+                
+                densityMap.set(key, (densityMap.get(key) || 0) + 1);
+                maxDensity = Math.max(maxDensity, densityMap.get(key));
             }
             
-            signedArea *= 0.5;
-            const area = Math.abs(signedArea);
+            // Find center of mass based on density
+            let densityCenterX = 0;
+            let densityCenterY = 0;
+            let totalWeight = 0;
             
-            let hullCentroidX, hullCentroidY;
-            
-            if (area > 0.001) {
-                // Proper polygon centroid
-                hullCentroidX = sumX / (6.0 * signedArea);
-                hullCentroidY = sumY / (6.0 * signedArea);
-            } else {
-                // Fallback to vertex average for degenerate cases
-                hullCentroidX = hull.reduce((sum, p) => sum + p.x, 0) / hull.length;
-                hullCentroidY = hull.reduce((sum, p) => sum + p.y, 0) / hull.length;
+            for (const [key, density] of densityMap.entries()) {
+                const [gridX, gridY] = key.split(',').map(Number);
+                const x = gridX * gridResolution;
+                const y = gridY * gridResolution;
+                
+                densityCenterX += x * density;
+                densityCenterY += y * density;
+                totalWeight += density;
             }
             
-            // Calculate medoid of original shape
-            const shapeMedoid = calculateMedoid(unitPoints);
+            densityCenterX /= totalWeight;
+            densityCenterY /= totalWeight;
             
-            // Calculate concavity
-            const concavity = calculateConcavity(unitPoints);
+            // Step 3: Calculate medoid (geometric median)
+            const medoid = calculateMedoid(unitPoints);
             
-            // Blend between shape medoid and hull centroid based on concavity
-            // INCREASED from 1.5 to 2.5 for more aggressive hull weighting
-            // This ensures centroid stays in "bulk" for irregular shapes
-            const blendFactor = Math.min(1.0, concavity * 2.5);
+            // Step 4: Combine all three measures with smart weighting
+            // Bbox center (30%) + Density center (40%) + Medoid (30%)
+            let visualCenterX = bboxCenterX * 0.30 + densityCenterX * 0.40 + medoid.x * 0.30;
+            let visualCenterY = bboxCenterY * 0.30 + densityCenterY * 0.40 + medoid.y * 0.30;
+            
+            // Step 5: Verify the centroid is within the shape bounds
+            // If it's outside or near an edge, pull it toward the densest region
+            const isClosed = isShapeClosed(unitPoints);
+            
+            if (isClosed) {
+                // For closed shapes, ensure centroid is inside the polygon
+                let iterations = 0;
+                while (iterations < 10 && !isPointInPolygon(visualCenterX, visualCenterY, unitPoints)) {
+                    // Pull toward density center
+                    visualCenterX = visualCenterX * 0.7 + densityCenterX * 0.3;
+                    visualCenterY = visualCenterY * 0.7 + densityCenterY * 0.3;
+                    iterations++;
+                }
+            }
+            
+            // Step 6: Final adjustment - ensure centroid is in "bulk" not near edges
+            // Calculate distance to nearest edge point
+            let minDistToEdge = Infinity;
+            for (const p of unitPoints) {
+                const dist = Math.sqrt((p.x - visualCenterX) ** 2 + (p.y - visualCenterY) ** 2);
+                minDistToEdge = Math.min(minDistToEdge, dist);
+            }
+            
+            // If too close to edge, pull more toward density center
+            const avgDimension = (maxX - minX + maxY - minY) / 2;
+            if (minDistToEdge < avgDimension * 0.15) {
+                visualCenterX = visualCenterX * 0.5 + densityCenterX * 0.5;
+                visualCenterY = visualCenterY * 0.5 + densityCenterY * 0.5;
+            }
             
             return {
-                x: (1 - blendFactor) * shapeMedoid.x + blendFactor * hullCentroidX,
-                y: (1 - blendFactor) * shapeMedoid.y + blendFactor * hullCentroidY
+                x: visualCenterX,
+                y: visualCenterY
             };
+        }
+        
+        // Helper function: Check if point is inside polygon (ray casting algorithm)
+        function isPointInPolygon(x, y, polygon) {
+            let inside = false;
+            for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+                const xi = polygon[i].x, yi = polygon[i].y;
+                const xj = polygon[j].x, yj = polygon[j].y;
+                
+                const intersect = ((yi > y) !== (yj > y))
+                    && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+                if (intersect) inside = !inside;
+            }
+            return inside;
         }
         
         // ADAPTIVE CENTROID: Automatically chooses best method based on shape characteristics
@@ -855,14 +907,15 @@
             const areaVariation = calculateAreaVariation(unitPoints, brushSize);
             const concavity = calculateConcavity(unitPoints);
             
-            // Decision tree based on shape properties (6 methods now!)
-            // Priority: Check concavity FIRST to ensure centroid in bulk
-            // LOWERED threshold from 0.3 to 0.2 to catch more irregular shapes
+            // Decision tree based on shape properties
+            // PRIORITY: Use visual center (convex hull method) for most irregular shapes
+            // LOWERED threshold from 0.2 to 0.15 to catch even MORE irregular shapes
+            // This ensures centroid is in visual bulk for wider range of shapes
             
-            if (concavity > 0.2) {
-                // Concave or irregular shape - use convex hull centroid
-                // LOWERED threshold catches more shapes to ensure centroid in bulk
+            if (concavity > 0.15 || densityVariance > 0.4) {
+                // Concave, irregular, or shapes with uneven density
                 // Examples: horseshoe, crescent, C-shape, U-shape, Pac-Man, irregular blobs
+                // NEW: Also catches shapes with high density variance
                 // Places centroid in the "bulk" or visual center
                 return calculateConvexHullCentroid(unitPoints);
                 
@@ -873,7 +926,7 @@
                 
             } else if (areaVariation > 0.3) {
                 // Area variation detected - use area-weighted medoid
-                // Examples: most irregular shapes, blobs, any thickness variation
+                // Examples: shapes with thickness variation
                 return calculateAreaWeightedMedoid(unitPoints, brushSize);
                 
             } else if (brushSize > 5) {
@@ -881,13 +934,13 @@
                 // Better represents visual mass
                 return calculateBrushAwareMedoid(unitPoints, brushSize);
                 
-            } else if (densityVariance > 0.5) {
-                // High density variation - use weighted medoid
-                // Examples: shapes with dense and sparse regions
+            } else if (densityVariance > 0.3) {
+                // Moderate density variation - use weighted medoid
+                // Examples: shapes with moderately dense and sparse regions
                 return calculateWeightedMedoid(unitPoints);
                 
             } else {
-                // Very uniform shape - basic medoid
+                // Very uniform, simple shape - basic medoid
                 // Only reached for very simple, uniform shapes
                 return calculateMedoid(unitPoints);
             }
