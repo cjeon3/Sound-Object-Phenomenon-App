@@ -282,6 +282,36 @@
             </div>
         </div>
         
+        <div class="bg-gradient-to-r from-blue-50 to-cyan-50 p-6 rounded-xl shadow-lg border-2 border-blue-200 mb-6">
+            <h3 class="text-xl font-bold text-blue-800 mb-3 flex items-center gap-2">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"></path>
+                </svg>
+                Export Drawings to Google Drive
+            </h3>
+            <p class="text-sm text-gray-700 mb-4">
+                Enter your Google Apps Script Web App URL below to automatically upload all drawings as a ZIP file to your Google Drive.
+            </p>
+            
+            <div class="flex flex-col sm:flex-row gap-3">
+                <input 
+                    type="url" 
+                    id="drive-url-input" 
+                    placeholder="https://script.google.com/macros/s/..." 
+                    class="flex-1 px-4 py-3 text-sm border-2 border-blue-300 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all"
+                    value="">
+                
+                <button id="export-drive-btn" class="px-8 py-3 rounded-xl font-bold text-sm transition-all bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 shadow-lg hover:shadow-xl active:scale-95 whitespace-nowrap">
+                    📤 Export to Drive
+                </button>
+            </div>
+            
+            <p class="mt-3 text-xs text-gray-600 italic">
+                💡 Tip: Your URL is automatically saved for future exports. 
+                <a href="#" id="clear-drive-url" class="text-blue-700 hover:text-blue-900 underline font-semibold">Clear saved URL</a>
+            </p>
+        </div>
+        
         <div class="bg-gradient-to-r from-emerald-50 to-teal-50 p-6 rounded-xl shadow-lg border-2 border-emerald-200">
             <h3 class="text-xl font-bold text-emerald-800 mb-3 flex items-center gap-2">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1202,6 +1232,99 @@
             }
         }
 
+        async function exportToGoogleDrive() {
+            // Check for JSZip dependency
+            if (typeof JSZip === 'undefined') {
+                alert('ZIP functionality library is not loaded correctly.');
+                return;
+            }
+
+            const participantName = document.getElementById('participant-name').value.trim();
+            if (!participantName) {
+                alert('Please enter your name before exporting.');
+                return;
+            }
+
+            const urlInput = document.getElementById('drive-url-input');
+            const driveUrl = urlInput.value.trim();
+            
+            if (!driveUrl) {
+                alert('Please enter your Google Apps Script Web App URL for Drive export.');
+                return;
+            }
+            
+            localStorage.setItem('driveUrl', driveUrl);
+
+            // Check if we have any drawings
+            let hasDrawings = false;
+            for (const key in allFrequencyData) {
+                if (allFrequencyData[key].length > 0) {
+                    hasDrawings = true;
+                    break;
+                }
+            }
+            
+            if (!hasDrawings) {
+                alert('No drawings found. Please draw shapes for at least one frequency.');
+                return;
+            }
+
+            document.getElementById('status-message').textContent = 'Status: Generating ZIP file for Drive...';
+
+            try {
+                const zip = new JSZip();
+                const chronologicalCount = getAndIncrementParticipantExportCount(participantName);
+                const folderName = `${participantName}_${chronologicalCount}_Drawings`;
+                const folder = zip.folder(folderName);
+                
+                let filesAdded = 0;
+
+                for (const freq of frequencies) {
+                    const key = getFrequencyKey(freq);
+                    if (allFrequencyData[key].length > 0) {
+                        const dataURL = generateImageForFrequency(freq);
+                        const filename = `${participantName}_${freq.hz}Hz_${freq.db}dB.png`;
+                        const base64Data = dataURL.split(',')[1];
+                        
+                        folder.file(filename, base64Data, { base64: true });
+                        filesAdded++;
+                    }
+                }
+
+                if (filesAdded === 0) {
+                    document.getElementById('status-message').textContent = 'Status: No drawings found to export.';
+                    return;
+                }
+
+                // Generate ZIP as base64
+                document.getElementById('status-message').textContent = 'Status: Uploading to Google Drive...';
+                const zipBlob = await zip.generateAsync({ type: "base64" });
+                const fileName = `${participantName}_${chronologicalCount}_Drawings.zip`;
+
+                // Send to Google Apps Script
+                await fetch(driveUrl, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        fileName: fileName,
+                        fileData: zipBlob,
+                        mimeType: 'application/zip'
+                    })
+                });
+
+                document.getElementById('status-message').textContent = `Status: Successfully uploaded ${filesAdded} images to Google Drive!`;
+                alert(`${filesAdded} drawings exported to Google Drive successfully! Check your Drive folder.`);
+
+            } catch (error) {
+                console.error('Drive export error:', error);
+                document.getElementById('status-message').textContent = 'Status: Drive export failed';
+                alert('Export to Google Drive failed. Please check your Web App URL and try again.');
+            }
+        }
+
         function resetAll() {
             document.getElementById('participant-name').value = '';
             
@@ -1268,6 +1391,11 @@
                 document.getElementById('sheets-url-input').value = savedSheetsUrl;
             }
             
+            const savedDriveUrl = localStorage.getItem('driveUrl');
+            if (savedDriveUrl) {
+                document.getElementById('drive-url-input').value = savedDriveUrl;
+            }
+            
             // Register service worker for PWA functionality
             if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.register('service-worker.js')
@@ -1327,6 +1455,7 @@
             document.getElementById('download-all-zip').addEventListener('click', downloadAllImagesAsZip);
             
             document.getElementById('export-csv').addEventListener('click', exportCSV);
+            document.getElementById('export-drive-btn').addEventListener('click', exportToGoogleDrive);
             document.getElementById('export-sheets-btn').addEventListener('click', exportToGoogleSheets);
             
             document.getElementById('reset-all').addEventListener('click', () => {
@@ -1349,7 +1478,14 @@ Are you sure you want to reset everything?`;
                 e.preventDefault();
                 localStorage.removeItem('sheetsUrl');
                 document.getElementById('sheets-url-input').value = '';
-                document.getElementById('status-message').textContent = 'Status: Saved URL cleared';
+                document.getElementById('status-message').textContent = 'Status: Saved Sheets URL cleared';
+            });
+            
+            document.getElementById('clear-drive-url').addEventListener('click', (e) => {
+                e.preventDefault();
+                localStorage.removeItem('driveUrl');
+                document.getElementById('drive-url-input').value = '';
+                document.getElementById('status-message').textContent = 'Status: Saved Drive URL cleared';
             });
         };
     </script>
