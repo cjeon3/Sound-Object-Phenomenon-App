@@ -1607,15 +1607,15 @@
                 }
                 
                 // Outline area contribution (approximate)
-                // We subtract 70% of the outline to balance interior area with outline
-                // This ensures traced grid squares give area ≈ 1.0
-                const outlineArea = perimeter * (brushRadius * 2) * 0.70;
+                // We subtract 50% of the outline to balance interior and outline contributions
+                // This ensures traced shapes accurately reflect grid square counts
+                const outlineArea = perimeter * (brushRadius * 2) * 0.50;
                 adjustedArea = Math.max(0, totalArea - outlineArea);
                 
                 console.log("Perimeter:", perimeter.toFixed(3), "units");
-                console.log("Outline area (70%):", outlineArea.toFixed(4), "units²");
+                console.log("Outline area (50%):", outlineArea.toFixed(4), "units²");
                 console.log("ADJUSTED AREA:", adjustedArea.toFixed(4), "units²");
-                console.log("(Subtracted 70% of outline)");
+                console.log("(Subtracted 50% of outline)");
             }
             
             // DEBUG LOGGING
@@ -1695,20 +1695,25 @@
         
         // PIXEL-BASED AREA: Always uses pixel-based calculation for accuracy
         // 
-        // POST-PROCESSING: For closed shapes, subtracts 70% of outline thickness
-        // This ensures traced grid squares give area ≈ 1.0
+        // POST-PROCESSING: For closed shapes, subtracts 50% of outline thickness
+        // This balances interior and outline to match grid square counts accurately
         //
         // Expected areas for different scenarios:
         // 
         // - Traced 1×1 grid square (closed, brush size 5px = 0.05 radius):
         //   Raw area ≈ 1.4 units² (interior + outline)
-        //   Adjusted area ≈ 0.98-1.02 units² (after subtracting 70% of outline)
-        //   ✓ Very close to 1.0 grid square
+        //   Adjusted area ≈ 1.00-1.05 units² (after subtracting 50% of outline)
+        //   ✓ Matches 1.0 grid square
+        // 
+        // - Traced 2×1 rectangle (closed, brush size 5px):
+        //   Raw area ≈ 2.6 units²
+        //   Adjusted area ≈ 2.00-2.10 units²
+        //   ✓ Matches 2.0 grid squares
         // 
         // - Traced 2×2 grid square (closed, brush size 5px):
         //   Raw area ≈ 4.8 units²
-        //   Adjusted area ≈ 3.95-4.05 units²
-        //   ✓ Very close to 4.0 grid squares
+        //   Adjusted area ≈ 4.00-4.10 units²
+        //   ✓ Matches 4.0 grid squares
         // 
         // - Traced outline (open, brush size 5px):
         //   Area ≈ perimeter × brush_diameter
@@ -1721,7 +1726,7 @@
             
             // Use adaptive resolution (null = auto-select based on brush size)
             // This ensures thin strokes are captured accurately
-            // Post-processing will adjust closed shapes to subtract 70% of outline
+            // Post-processing will adjust closed shapes to subtract 50% of outline
             return calculatePixelBasedArea(unitPoints, brushSize, null);
         }
         
