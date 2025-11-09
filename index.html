@@ -1074,8 +1074,90 @@
             // This accounts for brush thickness and matches what users see
             return calculatePixelBasedArea(unitPoints, brushSize, 0.1);
         }
+        
+        // ============================================
+        // MULTI-SHAPE DETECTION SYSTEM
+        // ============================================
+        
+        // Detect disconnected components in a drawn path
+        function detectDisconnectedComponents(points, maxGap = 2.0) {
+            if (points.length < 3) return [points];
+            
+            const unitPoints = points.map(p => canvasToUnit(p.x, p.y));
+            const components = [];
+            let currentComponent = [unitPoints[0]];
+            
+            for (let i = 1; i < unitPoints.length; i++) {
+                const p1 = unitPoints[i - 1];
+                const p2 = unitPoints[i];
+                
+                const gap = Math.sqrt(
+                    (p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2
+                );
+                
+                // If gap is large, start new component
+                if (gap > maxGap) {
+                    // Save previous component if substantial
+                    if (currentComponent.length >= 10) {
+                        components.push(currentComponent);
+                    }
+                    // Start new component
+                    currentComponent = [p2];
+                } else {
+                    currentComponent.push(p2);
+                }
+            }
+            
+            // Add final component
+            if (currentComponent.length >= 10) {
+                components.push(currentComponent);
+            }
+            
+            return components.length > 0 ? components : [unitPoints];
+        }
+        
+        // Calculate combined area and averaged centroid for multiple components
+        function calculateMultiComponentMetrics(components, brushSize, areaThreshold = 0.5) {
+            const validComponents = [];
+            
+            // Calculate area and centroid for each component
+            for (const component of components) {
+                if (component.length < 3) continue;
+                
+                const area = calculateAdaptiveArea(component, brushSize);
+                
+                // Only include components with area >= threshold
+                if (area >= areaThreshold) {
+                    const centroid = calculateAdaptiveCentroid(component, brushSize);
+                    validComponents.push({
+                        points: component,
+                        area: area,
+                        centroid: centroid
+                    });
+                }
+            }
+            
+            // If no valid components, return zero
+            if (validComponents.length === 0) {
+                return { area: 0, x: 0, y: 0, componentCount: 0 };
+            }
+            
+            // Sum all areas
+            const totalArea = validComponents.reduce((sum, comp) => sum + comp.area, 0);
+            
+            // Average centroids (unweighted - each component contributes equally)
+            const avgX = validComponents.reduce((sum, comp) => sum + comp.centroid.x, 0) / validComponents.length;
+            const avgY = validComponents.reduce((sum, comp) => sum + comp.centroid.y, 0) / validComponents.length;
+            
+            return {
+                area: totalArea,
+                x: avgX,
+                y: avgY,
+                componentCount: validComponents.length
+            };
+        }
 
-        // Convex Hull calculation using Graham Scan algorithm
+        // Adaptive area calculation - automatically detects open vs closed shapes
         function convexHull(points) {
             if (points.length <= 3) return points;
             
@@ -1133,6 +1215,16 @@
         function calculateCentroid(points) {
             if (points.length < 3) return { area: 0, x: 0, y: 0 };
             
+            // STEP 1: Detect disconnected components (for "two ears" case)
+            const components = detectDisconnectedComponents(points, 2.0);
+            
+            // STEP 2: If multiple components detected, combine them
+            if (components.length > 1) {
+                const result = calculateMultiComponentMetrics(components, brushSize, 0.5);
+                return result;
+            }
+            
+            // STEP 3: Single component - proceed with normal calculation
             const unitPoints = points.map(p => canvasToUnit(p.x, p.y));
             
             // Calculate closure distance
