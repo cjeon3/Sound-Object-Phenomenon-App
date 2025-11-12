@@ -697,13 +697,10 @@
             const unitPoints = points.map(p => canvasToUnit(p.x, p.y));
             
             // Check if shape is closed (this may modify unitPoints to add closure)
-            const isClosed = isShapeClosed(unitPoints);
+            isShapeClosed(unitPoints);
             
-            // Calculate area
-            let area = 0;
-            if (isClosed) {
-                area = calculatePixelBasedArea(unitPoints, brushSize);
-            }
+            // Calculate area for all shapes (closed or open)
+            const area = calculatePixelBasedArea(unitPoints, brushSize);
             
             // Calculate geometric centroid (simple average of all points)
             const centroid = calculateGeometricCentroid(points);
