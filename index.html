@@ -662,26 +662,89 @@
         }
         
         // SIMPLIFIED: Basic Geometric Centroid Calculation
-        // Simply averages all X and Y coordinates
+        // Resamples points uniformly along path to avoid drawing-speed bias
         function calculateGeometricCentroid(points) {
             if (points.length === 0) {
                 return { x: 0, y: 0 };
             }
             
+            if (points.length === 1) {
+                const unitPoint = canvasToUnit(points[0].x, points[0].y);
+                return { x: unitPoint.x, y: unitPoint.y };
+            }
+            
             // Convert canvas points to unit coordinates
             const unitPoints = points.map(p => canvasToUnit(p.x, p.y));
             
-            // Calculate simple average of all X and Y coordinates
+            // Calculate total path length
+            let totalLength = 0;
+            const segmentLengths = [];
+            
+            for (let i = 0; i < unitPoints.length - 1; i++) {
+                const dx = unitPoints[i + 1].x - unitPoints[i].x;
+                const dy = unitPoints[i + 1].y - unitPoints[i].y;
+                const length = Math.sqrt(dx * dx + dy * dy);
+                segmentLengths.push(length);
+                totalLength += length;
+            }
+            
+            if (totalLength === 0) {
+                // All points are the same, just return that point
+                return { x: unitPoints[0].x, y: unitPoints[0].y };
+            }
+            
+            // Resample points uniformly along the path
+            // Use enough samples to represent the shape well (at least 100, or more for longer paths)
+            const numSamples = Math.max(100, Math.floor(totalLength / 0.1));
+            const sampleInterval = totalLength / numSamples;
+            
+            const resampledPoints = [];
+            let currentDistance = 0;
+            let targetDistance = 0;
+            let segmentIndex = 0;
+            let segmentProgress = 0;
+            
+            resampledPoints.push({ x: unitPoints[0].x, y: unitPoints[0].y });
+            
+            for (let sample = 1; sample < numSamples; sample++) {
+                targetDistance = sample * sampleInterval;
+                
+                // Find which segment contains this target distance
+                while (segmentIndex < segmentLengths.length && 
+                       currentDistance + segmentLengths[segmentIndex] < targetDistance) {
+                    currentDistance += segmentLengths[segmentIndex];
+                    segmentIndex++;
+                }
+                
+                if (segmentIndex >= segmentLengths.length) break;
+                
+                // Interpolate within the segment
+                segmentProgress = (targetDistance - currentDistance) / segmentLengths[segmentIndex];
+                
+                const p1 = unitPoints[segmentIndex];
+                const p2 = unitPoints[segmentIndex + 1];
+                
+                const x = p1.x + (p2.x - p1.x) * segmentProgress;
+                const y = p1.y + (p2.y - p1.y) * segmentProgress;
+                
+                resampledPoints.push({ x, y });
+            }
+            
+            // Add the last point
+            const lastPoint = unitPoints[unitPoints.length - 1];
+            resampledPoints.push({ x: lastPoint.x, y: lastPoint.y });
+            
+            // Now calculate the centroid from uniformly sampled points
             let sumX = 0;
             let sumY = 0;
             
-            for (const point of unitPoints) {
+            for (const point of resampledPoints) {
                 sumX += point.x;
                 sumY += point.y;
             }
             
-            const centroidX = sumX / unitPoints.length;
-            const centroidY = sumY / unitPoints.length;
+            const centroidX = sumX / resampledPoints.length;
+            const centroidY = sumY / resampledPoints.length;
             
             return { x: centroidX, y: centroidY };
         }
