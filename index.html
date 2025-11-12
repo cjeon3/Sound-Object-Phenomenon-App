@@ -258,6 +258,9 @@
                 <p class="text-xs text-gray-500 italic">
                     <strong>Area Calculation:</strong> Area is measured in grid squares, where each small box on the grid = 1 area unit. The total grid contains 400 squares (20×20).
                 </p>
+                <p class="text-xs text-gray-500 italic">
+                    <strong>Centroid Calculation:</strong> Centroid is calculated as the geometric center (simple average of all drawn points' X and Y coordinates).
+                </p>
             </div>
         </div>
         
@@ -348,7 +351,6 @@
         const CANVAS_SIZE = 1000;
         const UNIT_RANGE = 10;
         const SCALE_FACTOR = CANVAS_SIZE / (UNIT_RANGE * 2);
-        // Circle Radius set to 3 units as requested
         const BACKGROUND_CIRCLE_RADIUS_UNITS = 3; 
 
         const frequencies = [
@@ -426,574 +428,8 @@
             return colorMap[hex] || hex;
         }
 
-        // Calculate centroid using shoelace formula
         // ============================================
-        // ADAPTIVE CENTROID CALCULATION SYSTEM
-        // ============================================
-        
-        // Helper: Calculate aspect ratio of bounding box
-        function calculateAspectRatio(unitPoints) {
-            if (unitPoints.length === 0) return 1.0;
-            
-            let minX = unitPoints[0].x, maxX = unitPoints[0].x;
-            let minY = unitPoints[0].y, maxY = unitPoints[0].y;
-            
-            for (const p of unitPoints) {
-                minX = Math.min(minX, p.x);
-                maxX = Math.max(maxX, p.x);
-                minY = Math.min(minY, p.y);
-                maxY = Math.max(maxY, p.y);
-            }
-            
-            const width = maxX - minX;
-            const height = maxY - minY;
-            
-            if (width === 0 || height === 0) return 1.0;
-            
-            return Math.max(width / height, height / width);
-        }
-        
-        // Helper: Calculate density variance (how much point density varies)
-        function calculateDensityVariance(unitPoints) {
-            if (unitPoints.length < 5) return 0;
-            
-            const densities = [];
-            const radius = 0.5; // Check within 0.5 unit radius
-            
-            for (let i = 0; i < unitPoints.length; i++) {
-                let count = 0;
-                for (let j = 0; j < unitPoints.length; j++) {
-                    if (i === j) continue;
-                    const dist = Math.sqrt(
-                        (unitPoints[i].x - unitPoints[j].x) ** 2 + 
-                        (unitPoints[i].y - unitPoints[j].y) ** 2
-                    );
-                    if (dist < radius) count++;
-                }
-                densities.push(count);
-            }
-            
-            // Calculate coefficient of variation
-            const mean = densities.reduce((sum, d) => sum + d, 0) / densities.length;
-            if (mean === 0) return 0;
-            
-            const variance = densities.reduce((sum, d) => sum + (d - mean) ** 2, 0) / densities.length;
-            return Math.sqrt(variance) / mean;
-        }
-        
-        // Weighted Medoid: Points in dense areas have more influence
-        function calculateWeightedMedoid(unitPoints, maxIterations = 50, tolerance = 0.001) {
-            if (unitPoints.length < 3) {
-                return calculateMedoid(unitPoints, maxIterations, tolerance);
-            }
-            
-            // Calculate local density for each point
-            const pointWeights = [];
-            const neighborhoodRadius = 0.5;
-            
-            for (let i = 0; i < unitPoints.length; i++) {
-                let neighborCount = 0;
-                for (let j = 0; j < unitPoints.length; j++) {
-                    if (i === j) continue;
-                    const dist = Math.sqrt(
-                        (unitPoints[i].x - unitPoints[j].x) ** 2 + 
-                        (unitPoints[i].y - unitPoints[j].y) ** 2
-                    );
-                    if (dist < neighborhoodRadius) {
-                        neighborCount++;
-                    }
-                }
-                // More neighbors = higher weight (denser area)
-                pointWeights.push(1 + neighborCount * 0.1);
-            }
-            
-            // Initialize with weighted geometric centroid
-            let totalWeight = pointWeights.reduce((sum, w) => sum + w, 0);
-            let currentX = unitPoints.reduce((sum, p, i) => sum + p.x * pointWeights[i], 0) / totalWeight;
-            let currentY = unitPoints.reduce((sum, p, i) => sum + p.y * pointWeights[i], 0) / totalWeight;
-            
-            // Weighted Weiszfeld's algorithm
-            for (let iter = 0; iter < maxIterations; iter++) {
-                let numeratorX = 0;
-                let numeratorY = 0;
-                let denominator = 0;
-                
-                for (let i = 0; i < unitPoints.length; i++) {
-                    const p = unitPoints[i];
-                    const dist = Math.sqrt((p.x - currentX) ** 2 + (p.y - currentY) ** 2);
-                    
-                    if (dist < 1e-10) continue;
-                    
-                    const weight = pointWeights[i] / dist;
-                    numeratorX += p.x * weight;
-                    numeratorY += p.y * weight;
-                    denominator += weight;
-                }
-                
-                if (denominator === 0) break;
-                
-                const newX = numeratorX / denominator;
-                const newY = numeratorY / denominator;
-                
-                const change = Math.sqrt((newX - currentX) ** 2 + (newY - currentY) ** 2);
-                
-                currentX = newX;
-                currentY = newY;
-                
-                if (change < tolerance) break;
-            }
-            
-            return { x: currentX, y: currentY };
-        }
-        
-        // Skeleton-Constrained: For elongated shapes, follows the "spine"
-        function calculateSkeletonConstrainedCenter(unitPoints) {
-            if (unitPoints.length < 10) {
-                return calculateMedoid(unitPoints);
-            }
-            
-            // Create skeleton points by averaging neighborhoods along path
-            const skeletonPoints = [];
-            const windowSize = Math.min(10, Math.floor(unitPoints.length / 5));
-            
-            for (let i = 0; i < unitPoints.length; i++) {
-                let sumX = 0, sumY = 0, count = 0;
-                
-                for (let j = Math.max(0, i - windowSize); 
-                     j < Math.min(unitPoints.length, i + windowSize + 1); 
-                     j++) {
-                    sumX += unitPoints[j].x;
-                    sumY += unitPoints[j].y;
-                    count++;
-                }
-                
-                skeletonPoints.push({
-                    x: sumX / count,
-                    y: sumY / count
-                });
-            }
-            
-            // Calculate medoid of skeleton points
-            return calculateMedoid(skeletonPoints);
-        }
-        
-        // Brush-Aware: Accounts for visual mass of brush strokes
-        function calculateBrushAwareMedoid(unitPoints, brushSize, maxIterations = 50) {
-            const brushRadius = brushSize / SCALE_FACTOR / 2;
-            
-            // Create expanded points by sampling around each stroke point
-            const expandedPoints = [];
-            const angularSamples = 8; // Sample 8 points around each center
-            
-            // Limit sampling to avoid too many points (performance)
-            const stride = Math.max(1, Math.floor(unitPoints.length / 100));
-            
-            for (let i = 0; i < unitPoints.length; i += stride) {
-                const p = unitPoints[i];
-                expandedPoints.push(p); // Include center
-                
-                // Add points around the circumference at brush radius
-                for (let j = 0; j < angularSamples; j++) {
-                    const angle = (j / angularSamples) * 2 * Math.PI;
-                    expandedPoints.push({
-                        x: p.x + brushRadius * Math.cos(angle),
-                        y: p.y + brushRadius * Math.sin(angle)
-                    });
-                }
-            }
-            
-            // Calculate medoid on expanded point set
-            return calculateMedoid(expandedPoints, maxIterations, 0.001);
-        }
-        
-        // Helper: Calculate area variation (how much visual area varies across shape)
-        function calculateAreaVariation(unitPoints, brushSize) {
-            if (unitPoints.length < 5) return 0;
-            
-            const brushRadius = brushSize / SCALE_FACTOR / 2;
-            const areaContributions = [];
-            
-            // Calculate area contribution for each point
-            for (let i = 0; i < unitPoints.length; i++) {
-                let areaContribution = 0;
-                
-                // Base contribution: circle at this point
-                const baseArea = Math.PI * brushRadius * brushRadius;
-                areaContribution += baseArea;
-                
-                // Add contribution from segments
-                if (i > 0) {
-                    const p0 = unitPoints[i - 1];
-                    const p1 = unitPoints[i];
-                    const segmentLength = Math.sqrt(
-                        (p1.x - p0.x) ** 2 + (p1.y - p0.y) ** 2
-                    );
-                    areaContribution += segmentLength * (brushRadius * 2) / 2;
-                }
-                
-                if (i < unitPoints.length - 1) {
-                    const p1 = unitPoints[i];
-                    const p2 = unitPoints[i + 1];
-                    const segmentLength = Math.sqrt(
-                        (p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2
-                    );
-                    areaContribution += segmentLength * (brushRadius * 2) / 2;
-                }
-                
-                areaContributions.push(areaContribution);
-            }
-            
-            // Calculate coefficient of variation
-            const mean = areaContributions.reduce((sum, a) => sum + a, 0) / areaContributions.length;
-            if (mean === 0) return 0;
-            
-            const variance = areaContributions.reduce((sum, a) => sum + (a - mean) ** 2, 0) / areaContributions.length;
-            return Math.sqrt(variance) / mean;
-        }
-        
-        // Helper: Weighted Medoid with custom weights
-        function calculateWeightedMedoidWithWeights(unitPoints, weights, maxIterations = 50, tolerance = 0.001) {
-            if (unitPoints.length === 0) return { x: 0, y: 0 };
-            if (unitPoints.length === 1) return { x: unitPoints[0].x, y: unitPoints[0].y };
-            
-            // Initialize with weighted geometric centroid
-            let totalWeight = weights.reduce((sum, w) => sum + w, 0);
-            let currentX = unitPoints.reduce((sum, p, i) => sum + p.x * weights[i], 0) / totalWeight;
-            let currentY = unitPoints.reduce((sum, p, i) => sum + p.y * weights[i], 0) / totalWeight;
-            
-            // Weighted Weiszfeld's algorithm
-            for (let iter = 0; iter < maxIterations; iter++) {
-                let numeratorX = 0;
-                let numeratorY = 0;
-                let denominator = 0;
-                
-                for (let i = 0; i < unitPoints.length; i++) {
-                    const p = unitPoints[i];
-                    const dist = Math.sqrt((p.x - currentX) ** 2 + (p.y - currentY) ** 2);
-                    
-                    if (dist < 1e-10) continue;
-                    
-                    const weight = weights[i] / dist;
-                    numeratorX += p.x * weight;
-                    numeratorY += p.y * weight;
-                    denominator += weight;
-                }
-                
-                if (denominator === 0) break;
-                
-                const newX = numeratorX / denominator;
-                const newY = numeratorY / denominator;
-                
-                const change = Math.sqrt((newX - currentX) ** 2 + (newY - currentY) ** 2);
-                
-                currentX = newX;
-                currentY = newY;
-                
-                if (change < tolerance) break;
-            }
-            
-            return { x: currentX, y: currentY };
-        }
-        
-        // Area-Weighted Medoid: Points representing more visual area have more influence
-        function calculateAreaWeightedMedoid(unitPoints, brushSize, maxIterations = 50) {
-            if (unitPoints.length < 3) {
-                return calculateMedoid(unitPoints, maxIterations, 0.001);
-            }
-            
-            const brushRadius = brushSize / SCALE_FACTOR / 2;
-            
-            // Calculate area contribution for each point
-            const weights = [];
-            
-            for (let i = 0; i < unitPoints.length; i++) {
-                let areaContribution = 0;
-                
-                // Base contribution: circle at this point
-                const baseArea = Math.PI * brushRadius * brushRadius;
-                areaContribution += baseArea;
-                
-                // Add contribution from segments before this point
-                if (i > 0) {
-                    const p0 = unitPoints[i - 1];
-                    const p1 = unitPoints[i];
-                    const segmentLength = Math.sqrt(
-                        (p1.x - p0.x) ** 2 + (p1.y - p0.y) ** 2
-                    );
-                    // Rectangle area of this segment
-                    areaContribution += segmentLength * (brushRadius * 2) / 2;
-                }
-                
-                // Add contribution from segments after this point
-                if (i < unitPoints.length - 1) {
-                    const p1 = unitPoints[i];
-                    const p2 = unitPoints[i + 1];
-                    const segmentLength = Math.sqrt(
-                        (p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2
-                    );
-                    areaContribution += segmentLength * (brushRadius * 2) / 2;
-                }
-                
-                weights.push(areaContribution);
-            }
-            
-            // Normalize weights
-            const totalWeight = weights.reduce((sum, w) => sum + w, 0);
-            const normalizedWeights = weights.map(w => w / totalWeight * unitPoints.length);
-            
-            // Calculate weighted medoid
-            return calculateWeightedMedoidWithWeights(unitPoints, normalizedWeights, maxIterations, 0.001);
-        }
-        
-        // Helper: Calculate concavity (how much the shape deviates from its convex hull)
-        function calculateConcavity(unitPoints) {
-            if (unitPoints.length < 10) return 0;
-            
-            // Calculate convex hull
-            const hull = convexHull(unitPoints);
-            
-            if (hull.length < 3) return 0;
-            
-            // Calculate area of original shape (approximate)
-            let shapeArea = 0;
-            for (let i = 0; i < unitPoints.length; i++) {
-                const p1 = unitPoints[i];
-                const p2 = unitPoints[(i + 1) % unitPoints.length];
-                shapeArea += p1.x * p2.y - p2.x * p1.y;
-            }
-            shapeArea = Math.abs(shapeArea) / 2;
-            
-            // Calculate area of convex hull
-            let hullArea = 0;
-            for (let i = 0; i < hull.length; i++) {
-                const p1 = hull[i];
-                const p2 = hull[(i + 1) % hull.length];
-                hullArea += p1.x * p2.y - p2.x * p1.y;
-            }
-            hullArea = Math.abs(hullArea) / 2;
-            
-            if (hullArea === 0) return 0;
-            
-            // Concavity = 1 - (shape_area / hull_area)
-            // 0 = convex, 1 = very concave
-            return 1 - (shapeArea / hullArea);
-        }
-        
-        // Convex Hull-Based Centroid for concave shapes (horseshoe, crescent)
-        // ENHANCED: Now ensures centroid is always in visual center/bulk of shape
-        function calculateConvexHullCentroid(unitPoints) {
-            if (unitPoints.length < 10) {
-                return calculateMedoid(unitPoints);
-            }
-            
-            // Step 1: Calculate bounding box center as a starting point
-            let minX = unitPoints[0].x, maxX = unitPoints[0].x;
-            let minY = unitPoints[0].y, maxY = unitPoints[0].y;
-            
-            for (const p of unitPoints) {
-                minX = Math.min(minX, p.x);
-                maxX = Math.max(maxX, p.x);
-                minY = Math.min(minY, p.y);
-                maxY = Math.max(maxY, p.y);
-            }
-            
-            const bboxCenterX = (minX + maxX) / 2;
-            const bboxCenterY = (minY + maxY) / 2;
-            
-            // Step 2: Calculate density-weighted center
-            // This finds where most of the "mass" of the drawing is
-            const gridResolution = 0.1;
-            const densityMap = new Map();
-            let maxDensity = 0;
-            
-            for (const p of unitPoints) {
-                const gridX = Math.round(p.x / gridResolution);
-                const gridY = Math.round(p.y / gridResolution);
-                const key = `${gridX},${gridY}`;
-                
-                densityMap.set(key, (densityMap.get(key) || 0) + 1);
-                maxDensity = Math.max(maxDensity, densityMap.get(key));
-            }
-            
-            // Find center of mass based on density
-            let densityCenterX = 0;
-            let densityCenterY = 0;
-            let totalWeight = 0;
-            
-            for (const [key, density] of densityMap.entries()) {
-                const [gridX, gridY] = key.split(',').map(Number);
-                const x = gridX * gridResolution;
-                const y = gridY * gridResolution;
-                
-                densityCenterX += x * density;
-                densityCenterY += y * density;
-                totalWeight += density;
-            }
-            
-            densityCenterX /= totalWeight;
-            densityCenterY /= totalWeight;
-            
-            // Step 3: Calculate medoid (geometric median)
-            const medoid = calculateMedoid(unitPoints);
-            
-            // Step 4: Combine all three measures with smart weighting
-            // Bbox center (30%) + Density center (40%) + Medoid (30%)
-            let visualCenterX = bboxCenterX * 0.30 + densityCenterX * 0.40 + medoid.x * 0.30;
-            let visualCenterY = bboxCenterY * 0.30 + densityCenterY * 0.40 + medoid.y * 0.30;
-            
-            // Step 5: Verify the centroid is within the shape bounds
-            // If it's outside or near an edge, pull it toward the densest region
-            const isClosed = isShapeClosed(unitPoints);
-            
-            if (isClosed) {
-                // For closed shapes, ensure centroid is inside the polygon
-                let iterations = 0;
-                while (iterations < 10 && !isPointInPolygon(visualCenterX, visualCenterY, unitPoints)) {
-                    // Pull toward density center
-                    visualCenterX = visualCenterX * 0.7 + densityCenterX * 0.3;
-                    visualCenterY = visualCenterY * 0.7 + densityCenterY * 0.3;
-                    iterations++;
-                }
-            }
-            
-            // Step 6: Final adjustment - ensure centroid is in "bulk" not near edges
-            // Calculate distance to nearest edge point
-            let minDistToEdge = Infinity;
-            for (const p of unitPoints) {
-                const dist = Math.sqrt((p.x - visualCenterX) ** 2 + (p.y - visualCenterY) ** 2);
-                minDistToEdge = Math.min(minDistToEdge, dist);
-            }
-            
-            // If too close to edge, pull more toward density center
-            const avgDimension = (maxX - minX + maxY - minY) / 2;
-            if (minDistToEdge < avgDimension * 0.15) {
-                visualCenterX = visualCenterX * 0.5 + densityCenterX * 0.5;
-                visualCenterY = visualCenterY * 0.5 + densityCenterY * 0.5;
-            }
-            
-            return {
-                x: visualCenterX,
-                y: visualCenterY
-            };
-        }
-        
-        // Helper function: Check if point is inside polygon (ray casting algorithm)
-        function isPointInPolygon(x, y, polygon) {
-            let inside = false;
-            for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-                const xi = polygon[i].x, yi = polygon[i].y;
-                const xj = polygon[j].x, yj = polygon[j].y;
-                
-                const intersect = ((yi > y) !== (yj > y))
-                    && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
-                if (intersect) inside = !inside;
-            }
-            return inside;
-        }
-        
-        // ADAPTIVE CENTROID: Automatically chooses best method based on shape characteristics
-        function calculateAdaptiveCentroid(unitPoints, brushSize) {
-            if (unitPoints.length < 3) {
-                if (unitPoints.length === 0) return { x: 0, y: 0 };
-                if (unitPoints.length === 1) return { x: unitPoints[0].x, y: unitPoints[0].y };
-                const avgX = unitPoints.reduce((sum, p) => sum + p.x, 0) / unitPoints.length;
-                const avgY = unitPoints.reduce((sum, p) => sum + p.y, 0) / unitPoints.length;
-                return { x: avgX, y: avgY };
-            }
-            
-            // Analyze shape characteristics
-            const aspectRatio = calculateAspectRatio(unitPoints);
-            const densityVariance = calculateDensityVariance(unitPoints);
-            const areaVariation = calculateAreaVariation(unitPoints, brushSize);
-            const concavity = calculateConcavity(unitPoints);
-            
-            // Decision tree based on shape properties
-            // PRIORITY: Use visual center (convex hull method) for most irregular shapes
-            // LOWERED threshold from 0.2 to 0.15 to catch even MORE irregular shapes
-            // This ensures centroid is in visual bulk for wider range of shapes
-            
-            if (concavity > 0.15 || densityVariance > 0.4) {
-                // Concave, irregular, or shapes with uneven density
-                // Examples: horseshoe, crescent, C-shape, U-shape, Pac-Man, irregular blobs
-                // NEW: Also catches shapes with high density variance
-                // Places centroid in the "bulk" or visual center
-                return calculateConvexHullCentroid(unitPoints);
-                
-            } else if (aspectRatio > 3.0) {
-                // Very elongated shape - use skeleton-constrained
-                // Examples: snake-like curves, long arcs
-                return calculateSkeletonConstrainedCenter(unitPoints);
-                
-            } else if (areaVariation > 0.3) {
-                // Area variation detected - use area-weighted medoid
-                // Examples: shapes with thickness variation
-                return calculateAreaWeightedMedoid(unitPoints, brushSize);
-                
-            } else if (brushSize > 5) {
-                // Thick strokes without area variation - use brush-aware medoid
-                // Better represents visual mass
-                return calculateBrushAwareMedoid(unitPoints, brushSize);
-                
-            } else if (densityVariance > 0.3) {
-                // Moderate density variation - use weighted medoid
-                // Examples: shapes with moderately dense and sparse regions
-                return calculateWeightedMedoid(unitPoints);
-                
-            } else {
-                // Very uniform, simple shape - basic medoid
-                // Only reached for very simple, uniform shapes
-                return calculateMedoid(unitPoints);
-            }
-        }
-        
-        // Medoid calculation using Weiszfeld's algorithm
-        // Finds the point that minimizes sum of distances to all points
-        // This guarantees the centroid is always inside or on the shape
-        function calculateMedoid(unitPoints, maxIterations = 50, tolerance = 0.001) {
-            if (unitPoints.length === 0) return { x: 0, y: 0 };
-            if (unitPoints.length === 1) return { x: unitPoints[0].x, y: unitPoints[0].y };
-            
-            // Initialize with geometric centroid as starting point
-            let currentX = unitPoints.reduce((sum, p) => sum + p.x, 0) / unitPoints.length;
-            let currentY = unitPoints.reduce((sum, p) => sum + p.y, 0) / unitPoints.length;
-            
-            // Weiszfeld's algorithm - iterative refinement
-            for (let iter = 0; iter < maxIterations; iter++) {
-                let numeratorX = 0;
-                let numeratorY = 0;
-                let denominator = 0;
-                
-                for (const p of unitPoints) {
-                    const dist = Math.sqrt((p.x - currentX) ** 2 + (p.y - currentY) ** 2);
-                    
-                    // Avoid division by zero
-                    if (dist < 1e-10) continue;
-                    
-                    const weight = 1.0 / dist;
-                    numeratorX += p.x * weight;
-                    numeratorY += p.y * weight;
-                    denominator += weight;
-                }
-                
-                if (denominator === 0) break;
-                
-                const newX = numeratorX / denominator;
-                const newY = numeratorY / denominator;
-                
-                // Check convergence
-                const change = Math.sqrt((newX - currentX) ** 2 + (newY - currentY) ** 2);
-                
-                currentX = newX;
-                currentY = newY;
-                
-                if (change < tolerance) break;
-            }
-            
-            return { x: currentX, y: currentY };
-        }
-
-        // ============================================
-        // ADAPTIVE AREA CALCULATION SYSTEM
+        // SIMPLIFIED GEOMETRIC CENTROID CALCULATION
         // ============================================
         
         // Helper: Calculate path length
@@ -1007,323 +443,26 @@
             return length;
         }
         
-        // INTELLIGENT CLOSURE: Detect and complete common shapes
-        function intelligentShapeClosure(unitPoints) {
-            if (unitPoints.length < 20) return null; // Need enough points
+        // Helper function to calculate distance from point to line segment
+        function distanceToSegment(px, py, x1, y1, x2, y2) {
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const lengthSquared = dx * dx + dy * dy;
             
-            const first = unitPoints[0];
-            const last = unitPoints[unitPoints.length - 1];
-            const gapDistance = Math.sqrt((last.x - first.x) ** 2 + (last.y - first.y) ** 2);
-            
-            // Calculate path length
-            const pathLength = calculatePathLength(unitPoints);
-            
-            // Check if shape is 50%+ closed (very lenient for partial shapes)
-            const closureRatio = (pathLength - gapDistance) / pathLength;
-            if (closureRatio < 0.50) return null; // Less than 50% traced = truly incomplete
-            
-            // Calculate bounding box
-            let minX = unitPoints[0].x, maxX = unitPoints[0].x;
-            let minY = unitPoints[0].y, maxY = unitPoints[0].y;
-            
-            for (const p of unitPoints) {
-                minX = Math.min(minX, p.x);
-                maxX = Math.max(maxX, p.x);
-                minY = Math.min(minY, p.y);
-                maxY = Math.max(maxY, p.y);
+            if (lengthSquared === 0) {
+                return Math.sqrt((px - x1) * (px - x1) + (py - y1) * (py - y1));
             }
             
-            const width = maxX - minX;
-            const height = maxY - minY;
-            const aspectRatio = Math.max(width, height) / Math.min(width, height);
+            let t = ((px - x1) * dx + (py - y1) * dy) / lengthSquared;
+            t = Math.max(0, Math.min(1, t));
             
-            // Detect shape type based on characteristics
-            const shapeType = detectShapeType(unitPoints, aspectRatio, width, height);
+            const closestX = x1 + t * dx;
+            const closestY = y1 + t * dy;
             
-            if (shapeType === 'irregular') return null; // Don't close irregular shapes
-            
-            // Generate closing points based on shape type
-            return generateClosingPath(shapeType, first, last, minX, maxX, minY, maxY, unitPoints);
+            return Math.sqrt((px - closestX) * (px - closestX) + (py - closestY) * (py - closestY));
         }
         
-        function detectShapeType(points, aspectRatio, width, height) {
-            // Check for irregularity (high variance in curvature)
-            let curvatureVariance = 0;
-            const segmentCount = Math.min(20, points.length - 1);
-            const step = Math.floor(points.length / segmentCount);
-            
-            let angles = [];
-            for (let i = step; i < points.length - step; i += step) {
-                const p0 = points[i - step];
-                const p1 = points[i];
-                const p2 = points[i + step];
-                
-                const angle1 = Math.atan2(p1.y - p0.y, p1.x - p0.x);
-                const angle2 = Math.atan2(p2.y - p1.y, p2.x - p1.x);
-                let angleDiff = angle2 - angle1;
-                
-                // Normalize to [-π, π]
-                while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
-                while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
-                
-                angles.push(Math.abs(angleDiff));
-            }
-            
-            if (angles.length > 0) {
-                const meanAngle = angles.reduce((a, b) => a + b, 0) / angles.length;
-                curvatureVariance = angles.reduce((sum, a) => sum + (a - meanAngle) ** 2, 0) / angles.length;
-            }
-            
-            // High variance = irregular shape
-            if (curvatureVariance > 0.5) return 'irregular';
-            
-            // Check for crescent (concave shape)
-            const isCrescent = detectCrescent(points);
-            if (isCrescent) return 'crescent';
-            
-            // Check for half-circle (smooth arc with flat base)
-            const isHalfCircle = detectHalfCircle(points, aspectRatio);
-            if (isHalfCircle) return 'half-circle';
-            
-            // Circle/Oval: aspect ratio determines which
-            if (aspectRatio < 1.3 && curvatureVariance < 0.1) {
-                return 'circle';
-            }
-            
-            if (aspectRatio >= 1.3 && aspectRatio < 2.5 && curvatureVariance < 0.15) {
-                return 'oval';
-            }
-            
-            // Diamond: rotated square (aspect ~1, 4 corners)
-            if (aspectRatio < 1.4 && detectDiamondPattern(points)) {
-                return 'diamond';
-            }
-            
-            // Square: aspect ratio close to 1, low curvature variance
-            if (aspectRatio < 1.3 && curvatureVariance < 0.3) {
-                return 'square';
-            }
-            
-            // Rectangle: elongated, low curvature variance
-            if (aspectRatio >= 1.3 && aspectRatio < 3.5 && curvatureVariance < 0.3) {
-                return 'rectangle';
-            }
-            
-            // Triangle: 3 corners, specific angle pattern
-            if (detectTrianglePattern(points)) {
-                return 'triangle';
-            }
-            
-            return 'irregular';
-        }
-        
-        function detectHalfCircle(points, aspectRatio) {
-            // Half-circle: aspect ratio ~2:1, one straight edge, one curved edge
-            if (aspectRatio < 1.7 || aspectRatio > 2.5) return false;
-            
-            // Check if endpoints are roughly on same horizontal or vertical line
-            const first = points[0];
-            const last = points[points.length - 1];
-            
-            const horizontalGap = Math.abs(last.y - first.y);
-            const verticalGap = Math.abs(last.x - first.x);
-            
-            // Calculate typical segment length
-            const typicalSegment = calculatePathLength(points) / points.length;
-            
-            // If endpoints align horizontally or vertically (within 3 segments), it's a half-circle base
-            return (horizontalGap < typicalSegment * 3) || (verticalGap < typicalSegment * 3);
-        }
-        
-        function detectDiamondPattern(points) {
-            // Diamond: 4 corners at roughly 90° angles
-            let corners = [];
-            const step = Math.max(5, Math.floor(points.length / 20));
-            
-            for (let i = step; i < points.length - step; i += step) {
-                const p0 = points[i - step];
-                const p1 = points[i];
-                const p2 = points[i + step];
-                
-                const v1x = p1.x - p0.x, v1y = p1.y - p0.y;
-                const v2x = p2.x - p1.x, v2y = p2.y - p1.y;
-                
-                const dot = v1x * v2x + v1y * v2y;
-                const mag1 = Math.sqrt(v1x * v1x + v1y * v1y);
-                const mag2 = Math.sqrt(v2x * v2x + v2y * v2y);
-                
-                if (mag1 > 0 && mag2 > 0) {
-                    const angle = Math.acos(Math.max(-1, Math.min(1, dot / (mag1 * mag2))));
-                    if (angle > Math.PI / 3) { // Corner detected
-                        corners.push({index: i, angle: angle});
-                    }
-                }
-            }
-            
-            // Diamond should have 4 corners
-            return corners.length >= 3 && corners.length <= 5;
-        }
-        
-        function detectCrescent(points) {
-            // Crescent: concave shape - calculate if shape curves inward
-            if (points.length < 30) return false;
-            
-            // Calculate convex hull and compare areas
-            const hull = convexHull(points);
-            if (hull.length < 3) return false;
-            
-            // Calculate hull area
-            let hullArea = 0;
-            for (let i = 0; i < hull.length; i++) {
-                const p1 = hull[i];
-                const p2 = hull[(i + 1) % hull.length];
-                hullArea += p1.x * p2.y - p2.x * p1.y;
-            }
-            hullArea = Math.abs(hullArea) / 2;
-            
-            // Calculate path area (approximate)
-            let pathArea = 0;
-            for (let i = 0; i < points.length; i++) {
-                const p1 = points[i];
-                const p2 = points[(i + 1) % points.length];
-                pathArea += p1.x * p2.y - p2.x * p1.y;
-            }
-            pathArea = Math.abs(pathArea) / 2;
-            
-            if (hullArea === 0) return false;
-            
-            // Concavity: if path area is much smaller than hull area, it's concave
-            const concavity = 1 - (pathArea / hullArea);
-            return concavity > 0.3; // Significant concavity = crescent
-        }
-        
-        function detectTrianglePattern(points) {
-            // Look for 3 distinct corners (high curvature points)
-            let corners = 0;
-            const step = Math.max(5, Math.floor(points.length / 20));
-            
-            for (let i = step; i < points.length - step; i += step) {
-                const p0 = points[i - step];
-                const p1 = points[i];
-                const p2 = points[i + step];
-                
-                const v1x = p1.x - p0.x, v1y = p1.y - p0.y;
-                const v2x = p2.x - p1.x, v2y = p2.y - p1.y;
-                
-                const dot = v1x * v2x + v1y * v2y;
-                const mag1 = Math.sqrt(v1x * v1x + v1y * v1y);
-                const mag2 = Math.sqrt(v2x * v2x + v2y * v2y);
-                
-                if (mag1 > 0 && mag2 > 0) {
-                    const angle = Math.acos(Math.max(-1, Math.min(1, dot / (mag1 * mag2))));
-                    if (angle > Math.PI / 4) { // Sharp corner
-                        corners++;
-                    }
-                }
-            }
-            
-            return corners >= 2 && corners <= 4; // 3 corners ± 1
-        }
-        
-        function generateClosingPath(shapeType, start, end, minX, maxX, minY, maxY, originalPoints) {
-            const closingPoints = [];
-            
-            if (shapeType === 'circle' || shapeType === 'oval') {
-                // Close with elliptical arc
-                const centerX = (minX + maxX) / 2;
-                const centerY = (minY + maxY) / 2;
-                const radiusX = (maxX - minX) / 2;
-                const radiusY = (maxY - minY) / 2;
-                
-                const startAngle = Math.atan2((end.y - centerY) / radiusY, (end.x - centerX) / radiusX);
-                const endAngle = Math.atan2((start.y - centerY) / radiusY, (start.x - centerX) / radiusX);
-                
-                let angle = startAngle;
-                const steps = 10;
-                let angleDiff = endAngle - startAngle;
-                
-                // Take shortest arc
-                if (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
-                if (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
-                
-                for (let i = 1; i < steps; i++) {
-                    angle = startAngle + (angleDiff * i / steps);
-                    closingPoints.push({
-                        x: centerX + radiusX * Math.cos(angle),
-                        y: centerY + radiusY * Math.sin(angle)
-                    });
-                }
-            } else if (shapeType === 'half-circle') {
-                // Close with straight line (flat base of half-circle)
-                const steps = 5;
-                for (let i = 1; i < steps; i++) {
-                    const t = i / steps;
-                    closingPoints.push({
-                        x: end.x + (start.x - end.x) * t,
-                        y: end.y + (start.y - end.y) * t
-                    });
-                }
-            } else if (shapeType === 'diamond') {
-                // Close with straight line (diamond edge)
-                const steps = Math.max(3, Math.floor(Math.sqrt((end.x - start.x) ** 2 + (end.y - start.y) ** 2) / 0.1));
-                for (let i = 1; i < steps; i++) {
-                    const t = i / steps;
-                    closingPoints.push({
-                        x: end.x + (start.x - end.x) * t,
-                        y: end.y + (start.y - end.y) * t
-                    });
-                }
-            } else if (shapeType === 'crescent') {
-                // Close with gentle curve (inner arc of crescent)
-                const centerX = (minX + maxX) / 2;
-                const centerY = (minY + maxY) / 2;
-                
-                // Calculate control point for quadratic curve (slightly inward)
-                const midX = (start.x + end.x) / 2;
-                const midY = (start.y + end.y) / 2;
-                
-                // Pull control point toward center (creates inward curve)
-                const controlX = midX + (centerX - midX) * 0.3;
-                const controlY = midY + (centerY - midY) * 0.3;
-                
-                const steps = 10;
-                for (let i = 1; i < steps; i++) {
-                    const t = i / steps;
-                    const oneMinusT = 1 - t;
-                    
-                    // Quadratic Bezier curve
-                    const x = oneMinusT * oneMinusT * end.x + 
-                             2 * oneMinusT * t * controlX + 
-                             t * t * start.x;
-                    const y = oneMinusT * oneMinusT * end.y + 
-                             2 * oneMinusT * t * controlY + 
-                             t * t * start.y;
-                    
-                    closingPoints.push({x, y});
-                }
-            } else if (shapeType === 'square' || shapeType === 'rectangle') {
-                // Close with straight line (rectangle closes with straight edge)
-                const steps = Math.max(3, Math.floor(Math.sqrt((end.x - start.x) ** 2 + (end.y - start.y) ** 2) / 0.1));
-                for (let i = 1; i < steps; i++) {
-                    const t = i / steps;
-                    closingPoints.push({
-                        x: end.x + (start.x - end.x) * t,
-                        y: end.y + (start.y - end.y) * t
-                    });
-                }
-            } else if (shapeType === 'triangle') {
-                // Close with straight line
-                closingPoints.push({
-                    x: (end.x + start.x) / 2,
-                    y: (end.y + start.y) / 2
-                });
-            }
-            
-            return closingPoints;
-        }
-        
-        // Helper: Check if shape is closed (improved with multiple criteria)
-        // BALANCED closure detection - filters out C-shapes but allows human imperfection
+        // Helper: Check if shape is closed
         function isShapeClosed(unitPoints) {
             if (unitPoints.length < 10) return false;
             
@@ -1334,20 +473,10 @@
                 (last.x - first.x) ** 2 + (last.y - first.y) ** 2
             );
             
-            // Calculate average segment length
             const pathLength = calculatePathLength(unitPoints);
             const avgSegment = pathLength / (unitPoints.length - 1);
             
-            // DEBUG LOGGING
-            console.log("\n=== BALANCED CLOSURE DETECTION ===");
-            console.log("Points:", unitPoints.length);
-            console.log("Path length:", pathLength.toFixed(3), "units");
-            console.log("Closure distance:", closureDistance.toFixed(3), "units");
-            console.log("Avg segment:", avgSegment.toFixed(3), "units");
-            
-            // Calculate gap as percentage of path length
             const gapPercentage = (closureDistance / pathLength) * 100;
-            console.log("Gap as % of path:", gapPercentage.toFixed(1), "%");
             
             // Calculate total angle change (rotation)
             let totalAngleChange = 0;
@@ -1375,18 +504,9 @@
             
             const fullRotation = 2 * Math.PI;
             const rotationPercentage = (totalAngleChange / fullRotation) * 100;
-            console.log("Total rotation:", rotationPercentage.toFixed(1), "% of full circle");
             
-            // BALANCED APPROACH: Use combination of gap AND rotation
-            // This allows human imperfection while filtering out C-shapes
-            
-            // Strategy 1: Very tight closure (always closed, regardless of rotation)
-            // Handles nearly-perfect circles drawn by humans
+            // Strategy 1: Very tight closure
             if (gapPercentage < 2.0) {
-                console.log("✓ CLOSED (Strategy 1: Very tight gap <2%)");
-                console.log("  → Nearly perfect closure detected");
-                
-                // Add minimal closure if needed
                 if (closureDistance > avgSegment * 0.5) {
                     const steps = Math.max(3, Math.ceil(closureDistance / avgSegment));
                     for (let i = 1; i < steps; i++) {
@@ -1401,15 +521,8 @@
             }
             
             // Strategy 2: Good rotation with reasonable gap
-            // Gap < 10% AND rotation > 70% → Closed (human-drawn circle with imperfect closure)
-            // This is the sweet spot for human-drawn shapes
             if (gapPercentage < 10.0 && rotationPercentage >= 70.0) {
-                console.log("✓ CLOSED (Strategy 2: Good gap", gapPercentage.toFixed(1), "% + rotation", rotationPercentage.toFixed(1), "%)");
-                console.log("  → Human-drawn shape with enclosed area detected");
-                
-                // Add straight-line closure
                 if (closureDistance > avgSegment * 0.5) {
-                    console.log("  → Adding straight-line closure");
                     const steps = Math.max(3, Math.ceil(closureDistance / avgSegment));
                     for (let i = 1; i < steps; i++) {
                         const t = i / steps;
@@ -1423,14 +536,8 @@
             }
             
             // Strategy 3: Excellent rotation with slightly larger gap
-            // Gap < 15% AND rotation > 85% → Closed (almost complete circle, just messy ending)
             if (gapPercentage < 15.0 && rotationPercentage >= 85.0) {
-                console.log("✓ CLOSED (Strategy 3: Excellent rotation", rotationPercentage.toFixed(1), "% compensates for gap", gapPercentage.toFixed(1), "%)");
-                console.log("  → Nearly complete rotation with messy ending");
-                
-                // Add straight-line closure
                 if (closureDistance > avgSegment * 0.5) {
-                    console.log("  → Adding straight-line closure");
                     const steps = Math.max(3, Math.ceil(closureDistance / avgSegment));
                     for (let i = 1; i < steps; i++) {
                         const t = i / steps;
@@ -1443,87 +550,40 @@
                 return true;
             }
             
-            // All strategies failed - this is a clearly open shape (C, line, etc.)
-            console.log("✗ OPEN (Gap:", gapPercentage.toFixed(1), "%, Rotation:", rotationPercentage.toFixed(1), "%)");
-            console.log("  → Shape is open (C-shape or single line) - area will be 0");
-            console.log("  → Typical C-shape: gap 15-25%, rotation 50-65%");
-            console.log("  → Typical closed shape: gap <10%, rotation >70%");
             return false;
         }
         
-        // Helper function to calculate distance from point to line segment
-        function distanceToSegment(px, py, x1, y1, x2, y2) {
-            const dx = x2 - x1;
-            const dy = y2 - y1;
-            const lengthSquared = dx * dx + dy * dy;
-            
-            if (lengthSquared === 0) {
-                // Segment is a point
-                return Math.sqrt((px - x1) * (px - x1) + (py - y1) * (py - y1));
+        // Helper: Point-in-polygon test using ray casting
+        function isPointInPolygon(x, y, polygon) {
+            let inside = false;
+            for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+                const xi = polygon[i].x, yi = polygon[i].y;
+                const xj = polygon[j].x, yj = polygon[j].y;
+                
+                const intersect = ((yi > y) !== (yj > y))
+                    && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+                if (intersect) inside = !inside;
             }
-            
-            // Calculate projection parameter
-            let t = ((px - x1) * dx + (py - y1) * dy) / lengthSquared;
-            t = Math.max(0, Math.min(1, t));
-            
-            // Find closest point on segment
-            const closestX = x1 + t * dx;
-            const closestY = y1 + t * dy;
-            
-            // Return distance to closest point
-            return Math.sqrt((px - closestX) * (px - closestX) + (py - closestY) * (py - closestY));
+            return inside;
         }
         
-        // Method 1: Brush-Aware Ribbon Area (for open shapes or thin lines)
-        function calculateBrushAwareArea(unitPoints, brushSize) {
-            if (unitPoints.length < 2) return 0;
-            
-            const brushRadius = brushSize / SCALE_FACTOR / 2;
-            
-            // Calculate path length
-            const pathLength = calculatePathLength(unitPoints);
-            
-            // Area = path length × brush diameter
-            const ribbonArea = pathLength * (brushRadius * 2);
-            
-            // Add area of circular caps at endpoints
-            const capArea = Math.PI * brushRadius * brushRadius * 2;
-            
-            return ribbonArea + capArea;
-        }
-        
-        // Method 2: Pixel-Based Area (most accurate, for all shapes)
+        // Pixel-Based Area calculation
         function calculatePixelBasedArea(unitPoints, brushSize, resolution = null) {
             if (unitPoints.length === 0) return 0;
             
-            // Calculate brush radius in units
             const isClosed = isShapeClosed(unitPoints);
             const fullBrushRadius = brushSize / SCALE_FACTOR / 2;
-            
-            // For closed shapes: include full interior + outline with full brush
-            // For open shapes: use full brush radius for the stroke
             const brushRadius = fullBrushRadius;
             
-            // DEBUG LOGGING
-            console.log("=== AREA CALCULATION ===");
-            console.log("Brush size (pixels):", brushSize);
-            console.log("Brush radius (units):", brushRadius.toFixed(4));
-            console.log("Brush diameter (units):", (brushRadius * 2).toFixed(4));
-            console.log("Shape is CLOSED:", isClosed);
-            
-            // Adaptive resolution: use finer grid for thin brushes
-            // This ensures we don't miss thin lines
             if (resolution === null) {
                 if (brushRadius < 0.05) {
-                    resolution = 0.05; // Finer resolution for very thin brushes
+                    resolution = 0.05;
                 } else if (brushRadius < 0.1) {
-                    resolution = 0.075; // Medium-fine resolution
+                    resolution = 0.075;
                 } else {
-                    resolution = 0.1; // Standard resolution for thick brushes
+                    resolution = 0.1;
                 }
             }
-            
-            console.log("Grid resolution:", resolution);
             
             // Find bounding box
             let minX = unitPoints[0].x, maxX = unitPoints[0].x;
@@ -1536,13 +596,11 @@
                 maxY = Math.max(maxY, p.y);
             }
             
-            // Expand bounding box by brush radius
             minX -= brushRadius;
             maxX += brushRadius;
             minY -= brushRadius;
             maxY += brushRadius;
             
-            // Sample grid and count "painted" cells
             let paintedCells = 0;
             
             for (let x = minX; x <= maxX; x += resolution) {
@@ -1550,13 +608,9 @@
                     let isPainted = false;
                     
                     if (isClosed) {
-                        // For closed shapes: include BOTH interior AND outline
-                        // First check if inside polygon (INTERIOR AREA)
                         if (isPointInPolygon(x, y, unitPoints)) {
                             isPainted = true;
                         } else {
-                            // Also check if within brush radius of ANY LINE SEGMENT (OUTLINE)
-                            // FIXED: Check distance to line segments, not just points
                             for (let i = 0; i < unitPoints.length - 1; i++) {
                                 const p1 = unitPoints[i];
                                 const p2 = unitPoints[i + 1];
@@ -1568,8 +622,6 @@
                             }
                         }
                     } else {
-                        // For open shapes: check distance to line segments
-                        // FIXED: Check distance to line segments, not just points
                         for (let i = 0; i < unitPoints.length - 1; i++) {
                             const p1 = unitPoints[i];
                             const p2 = unitPoints[i + 1];
@@ -1587,16 +639,12 @@
                 }
             }
             
-            // Area = number of cells × cell area
             const cellArea = resolution * resolution;
             const totalArea = paintedCells * cellArea;
             
-            // POST-PROCESSING: For closed shapes, subtract most of the outline thickness
-            // to get closer to the true interior area (grid square count)
             let adjustedArea = totalArea;
             
             if (isClosed) {
-                // Calculate approximate perimeter for outline subtraction
                 let perimeter = 0;
                 for (let i = 0; i < unitPoints.length; i++) {
                     const p1 = unitPoints[i];
@@ -1606,325 +654,70 @@
                     perimeter += Math.sqrt(dx * dx + dy * dy);
                 }
                 
-                // Outline area contribution (approximate)
-                // We subtract 50% of the outline to balance interior and outline contributions
-                // This ensures traced shapes accurately reflect grid square counts
                 const outlineArea = perimeter * (brushRadius * 2) * 0.50;
                 adjustedArea = Math.max(0, totalArea - outlineArea);
-                
-                console.log("Perimeter:", perimeter.toFixed(3), "units");
-                console.log("Outline area (50%):", outlineArea.toFixed(4), "units²");
-                console.log("ADJUSTED AREA:", adjustedArea.toFixed(4), "units²");
-                console.log("(Subtracted 50% of outline)");
             }
-            
-            // DEBUG LOGGING
-            console.log("Painted cells:", paintedCells);
-            console.log("Cell area:", cellArea.toFixed(6), "units²");
-            console.log("RAW AREA:", totalArea.toFixed(4), "units²");
-            if (isClosed) {
-                console.log("FINAL AREA (adjusted):", adjustedArea.toFixed(4), "units²");
-            } else {
-                console.log("FINAL AREA:", adjustedArea.toFixed(4), "units²");
-            }
-            console.log("========================");
             
             return adjustedArea;
         }
         
-        // Helper: Point-in-polygon test using ray casting
-        function isPointInPolygon(x, y, polygon) {
-            let inside = false;
-            for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-                const xi = polygon[i].x, yi = polygon[i].y;
-                const xj = polygon[j].x, yj = polygon[j].y;
-                
-                const intersect = ((yi > y) !== (yj > y))
-                    && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
-                if (intersect) inside = !inside;
+        // SIMPLIFIED: Basic Geometric Centroid Calculation
+        // Simply averages all X and Y coordinates
+        function calculateGeometricCentroid(points) {
+            if (points.length === 0) {
+                return { x: 0, y: 0 };
             }
-            return inside;
+            
+            // Convert canvas points to unit coordinates
+            const unitPoints = points.map(p => canvasToUnit(p.x, p.y));
+            
+            // Calculate simple average of all X and Y coordinates
+            let sumX = 0;
+            let sumY = 0;
+            
+            for (const point of unitPoints) {
+                sumX += point.x;
+                sumY += point.y;
+            }
+            
+            const centroidX = sumX / unitPoints.length;
+            const centroidY = sumY / unitPoints.length;
+            
+            return { x: centroidX, y: centroidY };
         }
         
-        // Method 3: Hybrid Area (polygon + brush perimeter, for closed shapes)
-        function calculateHybridArea(unitPoints, brushSize) {
-            if (unitPoints.length < 3) {
-                return calculateBrushAwareArea(unitPoints, brushSize);
+        // Main centroid calculation function
+        function calculateCentroid(points) {
+            if (points.length < 2) {
+                if (points.length === 0) return { area: 0, x: 0, y: 0 };
+                const unitPoint = canvasToUnit(points[0].x, points[0].y);
+                return { area: 0, x: unitPoint.x, y: unitPoint.y };
             }
-            
-            const brushRadius = brushSize / SCALE_FACTOR / 2;
-            
-            // Calculate polygon area (interior)
-            let polygonArea = 0;
-            for (let i = 0; i < unitPoints.length; i++) {
-                const p1 = unitPoints[i];
-                const p2 = unitPoints[(i + 1) % unitPoints.length];
-                polygonArea += p1.x * p2.y - p2.x * p1.y;
-            }
-            polygonArea = Math.abs(polygonArea) / 2;
-            
-            // Calculate perimeter length
-            let perimeter = 0;
-            for (let i = 0; i < unitPoints.length; i++) {
-                const p1 = unitPoints[i];
-                const p2 = unitPoints[(i + 1) % unitPoints.length];
-                perimeter += Math.sqrt((p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2);
-            }
-            
-            // Total area = polygon interior + perimeter band
-            const perimeterBandArea = perimeter * brushRadius * 2;
-            
-            // Add approximate area of corners
-            const cornerArea = Math.PI * brushRadius * brushRadius;
-            
-            return polygonArea + perimeterBandArea + cornerArea;
-        }
-        
-        // Method 4: Pure Polygon Area (for very thin brushes)
-        function calculatePolygonArea(unitPoints) {
-            if (unitPoints.length < 3) return 0;
-            
-            let area = 0;
-            for (let i = 0; i < unitPoints.length; i++) {
-                const p1 = unitPoints[i];
-                const p2 = unitPoints[(i + 1) % unitPoints.length];
-                area += p1.x * p2.y - p2.x * p1.y;
-            }
-            return Math.abs(area) / 2;
-        }
-        
-        // PIXEL-BASED AREA: Always uses pixel-based calculation for accuracy
-        // 
-        // POST-PROCESSING: For closed shapes, subtracts 50% of outline thickness
-        // This balances interior and outline to match grid square counts accurately
-        //
-        // Expected areas for different scenarios:
-        // 
-        // - Traced 1×1 grid square (closed, brush size 5px = 0.05 radius):
-        //   Raw area ≈ 1.4 units² (interior + outline)
-        //   Adjusted area ≈ 1.00-1.05 units² (after subtracting 50% of outline)
-        //   ✓ Matches 1.0 grid square
-        // 
-        // - Traced 2×1 rectangle (closed, brush size 5px):
-        //   Raw area ≈ 2.6 units²
-        //   Adjusted area ≈ 2.00-2.10 units²
-        //   ✓ Matches 2.0 grid squares
-        // 
-        // - Traced 2×2 grid square (closed, brush size 5px):
-        //   Raw area ≈ 4.8 units²
-        //   Adjusted area ≈ 4.00-4.10 units²
-        //   ✓ Matches 4.0 grid squares
-        // 
-        // - Traced outline (open, brush size 5px):
-        //   Area ≈ perimeter × brush_diameter
-        //   No adjustment (outline is the actual shape)
-        //
-        // Note: Uses adaptive resolution based on brush size for accuracy
-        //
-        function calculateAdaptiveArea(unitPoints, brushSize) {
-            if (unitPoints.length < 2) return 0;
-            
-            // Use adaptive resolution (null = auto-select based on brush size)
-            // This ensures thin strokes are captured accurately
-            // Post-processing will adjust closed shapes to subtract 50% of outline
-            return calculatePixelBasedArea(unitPoints, brushSize, null);
-        }
-        
-        // ============================================
-        // MULTI-SHAPE DETECTION SYSTEM
-        // ============================================
-        
-        // Detect disconnected components in a drawn path
-        function detectDisconnectedComponents(points, maxGap = 2.0) {
-            if (points.length < 3) return [points];
             
             const unitPoints = points.map(p => canvasToUnit(p.x, p.y));
-            const components = [];
-            let currentComponent = [unitPoints[0]];
             
-            for (let i = 1; i < unitPoints.length; i++) {
-                const p1 = unitPoints[i - 1];
-                const p2 = unitPoints[i];
-                
-                const gap = Math.sqrt(
-                    (p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2
-                );
-                
-                // If gap is large, start new component
-                if (gap > maxGap) {
-                    // Save previous component if substantial
-                    if (currentComponent.length >= 10) {
-                        components.push(currentComponent);
-                    }
-                    // Start new component
-                    currentComponent = [p2];
-                } else {
-                    currentComponent.push(p2);
-                }
+            // Check if shape is closed (this may modify unitPoints to add closure)
+            const isClosed = isShapeClosed(unitPoints);
+            
+            // Calculate area
+            let area = 0;
+            if (isClosed) {
+                area = calculatePixelBasedArea(unitPoints, brushSize);
             }
             
-            // Add final component
-            if (currentComponent.length >= 10) {
-                components.push(currentComponent);
-            }
+            // Calculate geometric centroid (simple average of all points)
+            const centroid = calculateGeometricCentroid(points);
             
-            return components.length > 0 ? components : [unitPoints];
-        }
-        
-        // Calculate combined area and averaged centroid for multiple components
-        function calculateMultiComponentMetrics(components, brushSize, areaThreshold = 0.5) {
-            const validComponents = [];
-            
-            // Calculate area and centroid for each component
-            for (const component of components) {
-                if (component.length < 3) continue;
-                
-                const area = calculateAdaptiveArea(component, brushSize);
-                
-                // Only include components with area >= threshold
-                if (area >= areaThreshold) {
-                    const centroid = calculateAdaptiveCentroid(component, brushSize);
-                    validComponents.push({
-                        points: component,
-                        area: area,
-                        centroid: centroid
-                    });
-                }
-            }
-            
-            // If no valid components, return zero
-            if (validComponents.length === 0) {
-                return { area: 0, x: 0, y: 0, componentCount: 0 };
-            }
-            
-            // Sum all areas
-            const totalArea = validComponents.reduce((sum, comp) => sum + comp.area, 0);
-            
-            // Average centroids (unweighted - each component contributes equally)
-            const avgX = validComponents.reduce((sum, comp) => sum + comp.centroid.x, 0) / validComponents.length;
-            const avgY = validComponents.reduce((sum, comp) => sum + comp.centroid.y, 0) / validComponents.length;
-            
-            return {
-                area: totalArea,
-                x: avgX,
-                y: avgY,
-                componentCount: validComponents.length
+            return { 
+                area: area, 
+                x: centroid.x, 
+                y: centroid.y 
             };
         }
 
-        // Adaptive area calculation - automatically detects open vs closed shapes
-        function convexHull(points) {
-            if (points.length <= 3) return points;
-            
-            // Sort points by x-coordinate (and y if x is equal)
-            const sorted = points.slice().sort((a, b) => 
-                a.x === b.x ? a.y - b.y : a.x - b.x
-            );
-            
-            // Cross product to determine turn direction
-            const cross = (o, a, b) => 
-                (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
-            
-            // Build lower hull
-            const lower = [];
-            for (const p of sorted) {
-                while (lower.length >= 2 && 
-                       cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) {
-                    lower.pop();
-                }
-                lower.push(p);
-            }
-            
-            // Build upper hull
-            const upper = [];
-            for (let i = sorted.length - 1; i >= 0; i--) {
-                const p = sorted[i];
-                while (upper.length >= 2 && 
-                       cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) {
-                    upper.pop();
-                }
-                upper.push(p);
-            }
-            
-            // Remove last point of each half because it's repeated
-            lower.pop();
-            upper.pop();
-            
-            return lower.concat(upper);
-        }
-
-        // Calculate area and centroid using Adaptive methods for both
-        function calculatePolygonAreaAndCentroid(polygonPoints) {
-            if (polygonPoints.length < 3) return { area: 0, x: 0, y: 0 };
-            
-            // Calculate area using Adaptive Area method
-            const area = calculateAdaptiveArea(polygonPoints, brushSize);
-            
-            // Calculate centroid using Adaptive Centroid method
-            const adaptiveCenter = calculateAdaptiveCentroid(polygonPoints, brushSize);
-            
-            return { area, x: adaptiveCenter.x, y: adaptiveCenter.y };
-        }
-
-        // Adaptive area calculation - automatically detects open vs closed shapes
-        function calculateCentroid(points) {
-            if (points.length < 3) return { area: 0, x: 0, y: 0 };
-            
-            // STEP 1: Detect disconnected components (for "two ears" case)
-            const components = detectDisconnectedComponents(points, 2.0);
-            
-            // STEP 2: If multiple components detected, combine them
-            if (components.length > 1) {
-                const result = calculateMultiComponentMetrics(components, brushSize, 0.5);
-                return result;
-            }
-            
-            // STEP 3: Single component - proceed with normal calculation
-            const unitPoints = points.map(p => canvasToUnit(p.x, p.y));
-            
-            // STEP 4: Use unified closure detection
-            // IMPORTANT: isShapeClosed() may modify unitPoints by:
-            // - Adding straight-line closure points (if gap < 50% dimension OR < 20% path length)
-            // - Adding intelligent shape completion points (circles, squares, etc.)
-            // This ensures proper interior filling for area calculation
-            const isClosed = isShapeClosed(unitPoints);
-            
-            if (isClosed) {
-                // Shape is closed - use Adaptive Area calculation
-                // Area calculation includes:
-                // - Interior filling (point-in-polygon)
-                // - Outline with full brush thickness
-                // - 80% outline subtraction (post-processing)
-                const area = calculateAdaptiveArea(unitPoints, brushSize);
-                
-                // Calculate centroid using Adaptive method
-                // Automatically selects best algorithm based on shape:
-                // - Concave/irregular → Visual center (density-weighted)
-                // - Elongated → Skeleton-constrained
-                // - Variable thickness → Area-weighted medoid
-                // - Thick brush → Brush-aware medoid
-                // - Simple → Basic medoid
-                const adaptiveCenter = calculateAdaptiveCentroid(unitPoints, brushSize);
-                
-                return { area, x: adaptiveCenter.x, y: adaptiveCenter.y };
-            } else {
-                // Shape is OPEN (C-shape, single line, etc.) - return area = 0
-                console.log("✗ OPEN SHAPE DETECTED - Returning area = 0");
-                
-                // Calculate centroid as simple average of points (for display only)
-                const avgX = unitPoints.reduce((sum, p) => sum + p.x, 0) / unitPoints.length;
-                const avgY = unitPoints.reduce((sum, p) => sum + p.y, 0) / unitPoints.length;
-                
-                return { area: 0, x: avgX, y: avgY };
-            }
-        }
-
         // Drawing functions
-        
-        // Draws a circle with a radius of 3 units, always in the background
         function drawBackgroundCircle() {
             const center = CANVAS_SIZE / 2;
-            // Radius in pixels: 3 units * SCALE_FACTOR (50 pixels/unit) = 150 pixels
             const radiusPixels = BACKGROUND_CIRCLE_RADIUS_UNITS * SCALE_FACTOR; 
             
             ctx.save();
@@ -1932,8 +725,7 @@
             ctx.beginPath();
             ctx.arc(center, center, radiusPixels, 0, 2 * Math.PI);
             
-            // Subtle color for the background element
-            ctx.strokeStyle = '#9ca3af'; // Same as axis color
+            ctx.strokeStyle = '#9ca3af';
             ctx.lineWidth = 2;
             
             ctx.stroke();
@@ -1982,26 +774,24 @@
             ctx.lineTo(center, CANVAS_SIZE);
             ctx.stroke();
 
-            // Draw labels - with better positioning to avoid cutoff
+            // Draw labels
             ctx.fillStyle = labelColor;
             ctx.font = 'bold 12px sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             
-            // Draw X-axis labels (horizontal)
+            // X-axis labels
             for (let i = -UNIT_RANGE; i <= UNIT_RANGE; i += 2) {
                 if (i === 0) continue;
                 const coord = unitToCanvas(i, 0);
-                // Position labels slightly higher to avoid cutoff at bottom
                 const labelY = i === UNIT_RANGE || i === -UNIT_RANGE ? center + 25 : center + 20;
                 ctx.fillText(i.toString(), coord.x, labelY);
             }
             
-            // Draw Y-axis labels (vertical)
+            // Y-axis labels
             for (let j = -UNIT_RANGE; j <= UNIT_RANGE; j += 2) {
                 if (j === 0) continue;
                 const coord = unitToCanvas(0, j);
-                // Adjust alignment for extreme values to prevent cutoff
                 if (j === UNIT_RANGE) {
                     ctx.textAlign = 'left';
                     ctx.fillText(j.toString(), center + 10, coord.y);
@@ -2055,7 +845,6 @@
             ctx.restore();
         }
         
-        // Helper function to draw grid on any context
         function drawGridOnContext(context) {
             const center = CANVAS_SIZE / 2;
             const gridColor = '#e5e7eb';
@@ -2066,7 +855,6 @@
             context.strokeStyle = gridColor;
             context.lineWidth = 1;
             
-            // Draw grid lines
             for (let i = -UNIT_RANGE + 1; i < UNIT_RANGE; i++) {
                 const coord = unitToCanvas(i, i);
                 
@@ -2083,7 +871,6 @@
                 }
             }
             
-            // Draw axes
             context.strokeStyle = axisColor;
             context.lineWidth = 2;
             
@@ -2097,26 +884,21 @@
             context.lineTo(center, CANVAS_SIZE);
             context.stroke();
 
-            // Draw labels - with better positioning to avoid cutoff
             context.fillStyle = labelColor;
             context.font = 'bold 12px sans-serif';
             context.textAlign = 'center';
             context.textBaseline = 'middle';
             
-            // Draw X-axis labels (horizontal)
             for (let i = -UNIT_RANGE; i <= UNIT_RANGE; i += 2) {
                 if (i === 0) continue;
                 const coord = unitToCanvas(i, 0);
-                // Position labels slightly higher to avoid cutoff at bottom
                 const labelY = i === UNIT_RANGE || i === -UNIT_RANGE ? center + 25 : center + 20;
                 context.fillText(i.toString(), coord.x, labelY);
             }
             
-            // Draw Y-axis labels (vertical)
             for (let j = -UNIT_RANGE; j <= UNIT_RANGE; j += 2) {
                 if (j === 0) continue;
                 const coord = unitToCanvas(0, j);
-                // Adjust alignment for extreme values to prevent cutoff
                 if (j === UNIT_RANGE) {
                     context.textAlign = 'left';
                     context.fillText(j.toString(), center + 10, coord.y);
@@ -2132,7 +914,6 @@
             context.textAlign = 'right';
             context.fillText('0', center - 8, center + 20);
 
-            // Draw center point
             context.fillStyle = '#1e40af';
             context.beginPath();
             context.arc(center, center, 5, 0, Math.PI * 2);
@@ -2141,7 +922,6 @@
             context.restore();
         }
         
-        // Helper function to draw centroid marker on any context
         function drawCentroidMarkerOnContext(context, centroidX, centroidY, color) {
             const pos = unitToCanvas(centroidX, centroidY);
             const markerSize = 12;
@@ -2151,7 +931,6 @@
             context.lineWidth = 3;
             context.lineCap = 'round';
             
-            // Draw cross
             context.beginPath();
             context.moveTo(pos.x - markerSize, pos.y);
             context.lineTo(pos.x + markerSize, pos.y);
@@ -2162,7 +941,6 @@
             context.lineTo(pos.x, pos.y + markerSize);
             context.stroke();
             
-            // Draw circle
             context.lineWidth = 2;
             context.beginPath();
             context.arc(pos.x, pos.y, markerSize + 2, 0, Math.PI * 2);
@@ -2171,27 +949,22 @@
             context.restore();
         }
         
-        // Generate image for a specific frequency
         function generateImageForFrequency(freq) {
             const key = getFrequencyKey(freq);
             const shapes = allFrequencyData[key];
             
-            // Create a temporary canvas for this frequency
             const tempCanvas = document.createElement('canvas');
             tempCanvas.width = CANVAS_SIZE;
             tempCanvas.height = CANVAS_SIZE;
             const tempCtx = tempCanvas.getContext('2d');
             
-            // White background
             tempCtx.fillStyle = '#ffffff';
             tempCtx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
             
-            // Draw background image if exists
             if (backgroundImage) {
                 tempCtx.drawImage(backgroundImage, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
             }
             
-            // Draw the background circle
             const center = CANVAS_SIZE / 2;
             const radiusPixels = BACKGROUND_CIRCLE_RADIUS_UNITS * SCALE_FACTOR;
             tempCtx.save();
@@ -2202,10 +975,8 @@
             tempCtx.stroke();
             tempCtx.restore();
             
-            // Draw grid
             drawGridOnContext(tempCtx);
             
-            // Draw shapes for this frequency
             shapes.forEach(path => {
                 if (path.length < 2) return;
                 
@@ -2222,7 +993,6 @@
                 }
                 tempCtx.stroke();
                 
-                // Draw centroid marker
                 const { x, y } = calculateCentroid(path);
                 drawCentroidMarkerOnContext(tempCtx, x, y, path[0].color);
             });
@@ -2230,32 +1000,23 @@
             return tempCanvas.toDataURL('image/png');
         }
         
-        // NEW FUNCTION: Manages the chronological count for a participant
         function getAndIncrementParticipantExportCount(participantName) {
-            // If no name is provided, default to '01' and do not save
             if (!participantName || participantName === 'P-Anonymous') {
                 return '01';
             }
 
-            // Sanitize key for localStorage
             const storageKey = `exportCount_${participantName.replace(/[^a-zA-Z0-9]/g, '_')}`;
             
-            // Get current count (or 0 if not found)
             let currentCount = parseInt(localStorage.getItem(storageKey) || '0');
             
-            // Increment for the current export
             const newCount = currentCount + 1;
             
-            // Save the new count
             localStorage.setItem(storageKey, newCount.toString());
             
-            // Return the formatted new count (e.g., 1 -> '01', 12 -> '12')
             return String(newCount).padStart(2, '0');
         }
 
-        // MODIFIED: Function to download all drawings as a ZIP file with chronological naming
         function downloadAllImagesAsZip() {
-            // Check for JSZip and FileSaver dependency
             if (typeof JSZip === 'undefined' || typeof saveAs === 'undefined') {
                 alert('ZIP functionality libraries are not loaded correctly.');
                 return;
@@ -2263,7 +1024,6 @@
 
             const participantName = document.getElementById('participant-name').value.trim() || 'P-Anonymous';
             
-            // Check if we have any drawings
             let hasDrawings = false;
             for (const key in allFrequencyData) {
                 if (allFrequencyData[key].length > 0) {
@@ -2277,13 +1037,11 @@
                 return;
             }
             
-            // GET AND INCREMENT CHRONOLOGICAL COUNT
             const chronologicalCount = getAndIncrementParticipantExportCount(participantName);
             
             document.getElementById('status-message').textContent = 'Status: Generating ZIP file...';
             
             const zip = new JSZip();
-            // Use the chronological count in the folder name
             const folderName = `${participantName}_${chronologicalCount}_Drawings`; 
             const folder = zip.folder(folderName);
             
@@ -2294,7 +1052,6 @@
                 if (allFrequencyData[key].length > 0) {
                     const dataURL = generateImageForFrequency(freq);
                     const filename = `${participantName}_${freq.hz}Hz_${freq.db}dB.png`;
-                    // Data URL is in the format: data:image/png;base64,iVBORw0KGgo...
                     const base64Data = dataURL.split(',')[1];
                     
                     folder.file(filename, base64Data, { base64: true });
@@ -2303,15 +1060,12 @@
             }
             
             if (filesAdded === 0) {
-                 // This should not happen due to previous check, but handle it
                  document.getElementById('status-message').textContent = 'Status: No drawings found to zip.';
                  return;
             }
             
-            // Generate the ZIP file
             zip.generateAsync({ type: "blob" })
                 .then(function(content) {
-                    // Use the chronological count in the final ZIP filename
                     saveAs(content, `${participantName}_${chronologicalCount}_Drawings.zip`);
                     document.getElementById('status-message').textContent = `Status: Successfully generated and downloaded ${filesAdded} images in ZIP file ${chronologicalCount}.`;
                 })
@@ -2330,7 +1084,6 @@
                 ctx.drawImage(backgroundImage, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
             }
             
-            // Draw the background circle first
             drawBackgroundCircle(); 
             
             drawGrid();
@@ -2358,7 +1111,6 @@
             updateUndoRedoButtons();
         }
 
-        // Analysis and display
         function runAnalysis() {
             const shapes = getCurrentShapes();
             const results = [];
@@ -2418,7 +1170,6 @@
             container.innerHTML = html;
         }
 
-        // Undo/Redo functionality
         function saveState() {
             const key = getFrequencyKey(currentFrequency);
             undoStacks[key].push(JSON.stringify(getCurrentShapes()));
@@ -2454,7 +1205,6 @@
             document.getElementById('redo-button').disabled = redoStacks[key].length === 0;
         }
 
-        // Drawing event handlers
         function getEventPoint(event) {
             const rect = canvas.getBoundingClientRect();
             let clientX, clientY;
@@ -2523,7 +1273,6 @@
             currentPath = [];
         }
 
-        // UI creation functions
         function createFrequencyTabs() {
             const container = document.getElementById('frequency-tabs');
             container.innerHTML = '';
@@ -2573,7 +1322,6 @@
             });
         }
 
-        // File operations
         function handleImageUpload(e) {
             const file = e.target.files[0];
             if (file) {
@@ -2673,7 +1421,6 @@
 
             try {
                 document.getElementById('status-message').textContent = 'Status: Exporting to Google Sheets...';
-                // Using fetch with no-cors mode, expecting success but may not get response details
                 await fetch(sheetsUrl, {
                     method: 'POST',
                     mode: 'no-cors',
@@ -2691,7 +1438,6 @@
         }
 
         async function exportToGoogleDrive() {
-            // Check for JSZip dependency
             if (typeof JSZip === 'undefined') {
                 alert('ZIP functionality library is not loaded correctly.');
                 return;
@@ -2713,7 +1459,6 @@
             
             localStorage.setItem('driveUrl', driveUrl);
 
-            // Check if we have any drawings
             let hasDrawings = false;
             for (const key in allFrequencyData) {
                 if (allFrequencyData[key].length > 0) {
@@ -2754,12 +1499,10 @@
                     return;
                 }
 
-                // Generate ZIP as base64
                 document.getElementById('status-message').textContent = 'Status: Uploading to Google Drive...';
                 const zipBlob = await zip.generateAsync({ type: "base64" });
                 const fileName = `${participantName}_${chronologicalCount}_Drawings.zip`;
 
-                // Send to Google Apps Script
                 await fetch(driveUrl, {
                     method: 'POST',
                     mode: 'no-cors',
@@ -2814,7 +1557,6 @@
             }
         }
 
-        // Initialize canvas and event listeners
         function initializeCanvas() {
             canvas = document.getElementById('drawing-canvas');
             ctx = canvas.getContext('2d');
@@ -2822,13 +1564,11 @@
             canvas.width = CANVAS_SIZE;
             canvas.height = CANVAS_SIZE;
 
-            // Mouse events
             canvas.addEventListener('mousedown', startDrawing);
             canvas.addEventListener('mousemove', draw);
             canvas.addEventListener('mouseup', stopDrawing);
             canvas.addEventListener('mouseleave', stopDrawing);
 
-            // Touch events
             canvas.addEventListener('touchstart', startDrawing, { passive: false });
             canvas.addEventListener('touchmove', draw, { passive: false });
             canvas.addEventListener('touchend', stopDrawing);
@@ -2839,11 +1579,9 @@
             redrawCanvas();
         }
 
-        // Initialize on page load
         window.onload = function() {
             initializeCanvas();
             
-            // Load saved URL if it exists
             const savedSheetsUrl = localStorage.getItem('sheetsUrl');
             if (savedSheetsUrl) {
                 document.getElementById('sheets-url-input').value = savedSheetsUrl;
@@ -2854,7 +1592,6 @@
                 document.getElementById('drive-url-input').value = savedDriveUrl;
             }
             
-            // Register service worker for PWA functionality
             if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.register('service-worker.js')
                     .then(registration => {
@@ -2865,14 +1602,12 @@
                     });
             }
             
-            // PWA install prompt handler
             let deferredPrompt;
             window.addEventListener('beforeinstallprompt', (e) => {
                 e.preventDefault();
                 deferredPrompt = e;
             });
             
-            // Event listeners for controls
             document.getElementById('brush-size-slider').addEventListener('input', (e) => {
                 brushSize = parseInt(e.target.value);
                 document.getElementById('brush-size-value').textContent = brushSize;
@@ -2909,7 +1644,6 @@
             document.getElementById('redo-button').addEventListener('click', redo);
             document.getElementById('image-upload').addEventListener('change', handleImageUpload);
             
-            // EVENT LISTENER: Download all drawings as ZIP with chronological count
             document.getElementById('download-all-zip').addEventListener('click', downloadAllImagesAsZip);
             
             document.getElementById('export-csv').addEventListener('click', exportCSV);
