@@ -1,0 +1,1745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sound Object Visualization Research Tool</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Sound Viz">
+    <meta name="theme-color" content="#1e40af">
+    <meta name="description" content="Draw and analyze perceived sound shapes for acoustic research">
+    
+    <link rel="apple-touch-icon" href="icon-192.png">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    
+    <style>
+        * {
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body {
+            min-height: 100vh;
+            overscroll-behavior: none;
+            overflow-x: hidden;
+            font-family: ui-sans-serif, system-ui, sans-serif;
+            background-color: #f3f4f6;
+        }
+        
+        #canvas-container {
+            max-width: 100%;
+            width: 100%;
+            margin: 0 auto;
+            position: relative;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            border-radius: 0.75rem;
+            overflow: hidden;
+            background-color: #ffffff;
+            touch-action: none;
+            -webkit-user-select: none;
+            user-select: none;
+            aspect-ratio: 1 / 1;
+        }
+        
+        #drawing-canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+            cursor: crosshair;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+        }
+        
+        @media (max-width: 768px) {
+            #canvas-container {
+                max-width: 100vw;
+                margin: 0 -1rem;
+                border-radius: 0;
+            }
+            .frequency-tab {
+                font-size: 0.75rem;
+                padding: 0.5rem 0.75rem;
+            }
+            h1 { font-size: 1.75rem !important; }
+            h2 { font-size: 1.25rem !important; }
+        }
+        
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            background: transparent;
+            cursor: pointer;
+            width: 100%;
+        }
+        
+        input[type="range"]::-webkit-slider-track {
+            background: linear-gradient(to right, #3b82f6, #8b5cf6);
+            height: 0.75rem;
+            border-radius: 9999px;
+        }
+        
+        input[type="range"]::-moz-range-track {
+            background: linear-gradient(to right, #3b82f6, #8b5cf6);
+            height: 0.75rem;
+            border-radius: 9999px;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            height: 1.75rem;
+            width: 1.75rem;
+            background: white;
+            border: 3px solid #3b82f6;
+            border-radius: 50%;
+            cursor: pointer;
+            margin-top: -0.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            transition: all 0.2s;
+        }
+        
+        input[type="range"]::-moz-range-thumb {
+            height: 1.75rem;
+            width: 1.75rem;
+            background: white;
+            border: 3px solid #3b82f6;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            transition: all 0.2s;
+        }
+        
+        .frequency-tab {
+            transition: all 0.2s;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+        }
+        
+        .frequency-tab.active {
+            background: linear-gradient(to right, #3b82f6, #8b5cf6) !important;
+            color: white !important;
+            transform: scale(1.05);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+        }
+        
+        .color-button.selected {
+            border: 4px solid white !important;
+            box-shadow: 0 0 0 4px #3b82f6 !important;
+            transform: scale(1.15) !important;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen p-4 sm:p-8">
+    
+    <div class="max-w-6xl mx-auto">
+        <header class="text-center mb-6">
+            <h1 class="text-4xl font-extrabold text-blue-800 mb-2">Sound Object Phenomenon</h1>
+            <p class="text-xl font-semibold text-gray-600">UCI Hearing & Speech Lab</p>
+        </header>
+        
+        <div class="bg-white p-6 rounded-xl shadow-lg mb-6 border border-gray-100">
+            <label for="participant-name" class="block text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
+                <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                </svg>
+                Participant Name / ID
+            </label>
+            <input type="text" id="participant-name" placeholder="P-001" 
+                class="w-full px-4 py-3 text-lg border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all">
+            <p class="mt-2 text-sm text-gray-500">This ID will be used in the exported data file.</p>
+        </div>
+        
+        <div id="canvas-container" class="bg-white rounded-xl shadow-2xl p-0.5 mb-6">
+            <canvas id="drawing-canvas"></canvas>
+        </div>
+        
+        <div class="bg-white p-4 rounded-xl shadow-lg mb-6 border border-gray-100">
+            <h2 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path>
+                </svg>
+                Select Frequency
+            </h2>
+            <div id="frequency-tabs" class="flex flex-wrap gap-2"></div>
+        </div>
+        
+        <div class="bg-white p-4 rounded-xl shadow-lg mb-6 flex flex-col space-y-4 border border-gray-100">
+            <div class="flex flex-col sm:flex-row flex-wrap items-center gap-3 w-full">
+                <div class="w-full">
+                    <p class="text-base font-bold text-gray-800 mb-3">Upload an Image</p>
+                    <input type="file" id="image-upload" accept="image/*" class="text-sm text-gray-700
+                        file:mr-4 file:py-2.5 file:px-5
+                        file:rounded-xl file:border-0
+                        file:text-sm file:font-bold
+                        file:bg-gradient-to-r file:from-blue-500 file:to-blue-600
+                        file:text-white
+                        hover:file:from-blue-600 hover:file:to-blue-700
+                        file:shadow-lg file:transition-all
+                        cursor:pointer w-full sm:w-auto
+                    "/>
+                </div>
+            </div>
+            
+            <div class="flex flex-col sm:flex-row flex-wrap items-center gap-3 w-full pt-4 border-t border-gray-100">
+                
+                <button id="toggle-drawing" class="w-full sm:w-auto px-6 py-2.5 rounded-xl font-bold text-sm transition-all bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700 shadow-lg hover:shadow-xl">
+                    Stop Drawing
+                </button>
+                
+                <button id="clear-canvas" class="w-full sm:w-auto px-6 py-2.5 rounded-xl font-bold text-sm transition-all bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700 shadow-lg hover:shadow-xl">
+                    Clear Current
+                </button>
+                
+                <button id="undo-button" disabled class="w-full sm:w-auto px-6 py-2.5 rounded-xl font-bold text-sm transition-all bg-gradient-to-r from-yellow-400 to-yellow-500 text-gray-900 hover:from-yellow-500 hover:to-yellow-600 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
+                    Undo
+                </button>
+                
+                <button id="redo-button" disabled class="w-full sm:w-auto px-6 py-2.5 rounded-xl font-bold text-sm transition-all bg-gradient-to-r from-yellow-400 to-yellow-500 text-gray-900 hover:from-yellow-500 hover:to-yellow-600 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
+                    Redo
+                </button>
+                
+                <button id="reset-all" class="w-full sm:w-auto px-6 py-2.5 rounded-xl font-bold text-sm transition-all bg-gradient-to-r from-gray-600 to-gray-700 text-white hover:from-gray-700 hover:to-gray-800 shadow-lg hover:shadow-xl">
+                    🔄 Reset All
+                </button>
+            </div>
+            
+            <div class="pt-4 border-t border-gray-100">
+                <p class="text-base font-bold text-gray-800 mb-4 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path>
+                    </svg>
+                    Select Drawing Color
+                </p>
+                <div id="color-palette" class="flex flex-wrap gap-4"></div>
+            </div>
+            
+            <div class="grid grid-cols-1 gap-6 pt-6 border-t-2 border-gray-200">
+                <div class="bg-gradient-to-r from-blue-50 to-purple-50 p-6 rounded-xl shadow-inner">
+                    <label for="brush-size-slider" class="block text-base font-bold text-gray-800 mb-4 flex items-center justify-between">
+                        <span class="flex items-center gap-2">
+                            <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                            </svg>
+                            Brush Size
+                        </span>
+                        <span id="brush-size-value" class="text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">5</span>
+                    </label>
+                    <div class="relative">
+                        <input id="brush-size-slider" type="range" min="1" max="10" value="5">
+                        <div class="flex justify-between mt-2 text-xs font-semibold text-gray-500 px-1">
+                            <span>1px (Fine)</span>
+                            <span>10px (Thick)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="status-message" class="text-sm font-medium text-gray-500 w-full text-center md:text-left pt-2 border-t border-gray-100">
+                Status: Ready
+            </div>
+        </div>
+        
+        <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-100 mb-6">
+            <h2 class="text-2xl font-bold text-blue-700 mb-4">Sound Object Area and X,Y Coordinates</h2>
+            <div id="results-table-container">
+                <p class="text-gray-500 italic">Draw shapes for each frequency to see results.</p>
+            </div>
+            <div class="mt-4 space-y-2">
+                <p class="text-xs text-gray-500 italic">
+                    <strong>Unit Measurement:</strong> The coordinate system uses a 20×20 grid centered at origin (0,0), spanning from -10 to +10 units on both axes. Each grid square represents one unit of area measurement.
+                </p>
+                <p class="text-xs text-gray-500 italic">
+                    <strong>Area Calculation:</strong> Area is measured in grid squares, where each small box on the grid = 1 area unit. The total grid contains 400 squares (20×20).
+                </p>
+                <p class="text-xs text-gray-500 italic">
+                    <strong>Centroid Calculation:</strong> Centroid is calculated as the geometric center (simple average of all drawn points' X and Y coordinates).
+                </p>
+            </div>
+        </div>
+        
+        <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-100 mb-6">
+            <h3 class="text-xl font-bold text-gray-800 mb-3 flex items-center gap-2">
+                <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                </svg>
+                Export Data
+            </h3>
+            <p class="text-sm text-gray-600 mb-4">
+                Download your drawings and data for offline storage or analysis.
+            </p>
+            <div class="flex flex-col sm:flex-row gap-3">
+                <button id="download-all-zip" class="flex-1 px-6 py-3 rounded-xl font-bold text-sm transition-all bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 shadow-lg hover:shadow-xl">
+                    ⬇️ Download All Drawings (ZIP)
+                </button>
+                
+                <button id="export-csv" class="flex-1 px-6 py-3 rounded-xl font-bold text-sm transition-all bg-gradient-to-r from-teal-500 to-teal-600 text-white hover:from-teal-600 hover:to-teal-700 shadow-lg hover:shadow-xl">
+                    📄 Export CSV
+                </button>
+            </div>
+        </div>
+        
+        <div class="bg-gradient-to-r from-blue-50 to-cyan-50 p-6 rounded-xl shadow-lg border-2 border-blue-200 mb-6">
+            <h3 class="text-xl font-bold text-blue-800 mb-3 flex items-center gap-2">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"></path>
+                </svg>
+                Export Drawings to Google Drive
+            </h3>
+            <p class="text-sm text-gray-700 mb-4">
+                Enter your Google Apps Script Web App URL below to automatically upload all drawings as a ZIP file to your Google Drive.
+            </p>
+            
+            <div class="flex flex-col sm:flex-row gap-3">
+                <input 
+                    type="url" 
+                    id="drive-url-input" 
+                    placeholder="https://script.google.com/macros/s/..." 
+                    class="flex-1 px-4 py-3 text-sm border-2 border-blue-300 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all"
+                    value="">
+                
+                <button id="export-drive-btn" class="px-8 py-3 rounded-xl font-bold text-sm transition-all bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 shadow-lg hover:shadow-xl active:scale-95 whitespace-nowrap">
+                    📤 Export to Drive
+                </button>
+            </div>
+            
+            <p class="mt-3 text-xs text-gray-600 italic">
+                💡 Tip: Your URL is automatically saved for future exports. 
+                <a href="#" id="clear-drive-url" class="text-blue-700 hover:text-blue-900 underline font-semibold">Clear saved URL</a>
+            </p>
+        </div>
+        
+        <div class="bg-gradient-to-r from-emerald-50 to-teal-50 p-6 rounded-xl shadow-lg border-2 border-emerald-200">
+            <h3 class="text-xl font-bold text-emerald-800 mb-3 flex items-center gap-2">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+                Export to Google Sheets
+            </h3>
+            <p class="text-sm text-gray-700 mb-4">
+                Enter your Google Apps Script Web App URL below to automatically send all data to your Google Sheet.
+            </p>
+            
+            <div class="flex flex-col sm:flex-row gap-3">
+                <input 
+                    type="url" 
+                    id="sheets-url-input" 
+                    placeholder="https://script.google.com/macros/s/..." 
+                    class="flex-1 px-4 py-3 text-sm border-2 border-emerald-300 rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition-all"
+                    value="">
+                
+                <button id="export-sheets-btn" class="px-8 py-3 rounded-xl font-bold text-sm transition-all bg-gradient-to-r from-emerald-500 to-emerald-600 text-white hover:from-emerald-600 hover:to-emerald-700 shadow-lg hover:shadow-xl active:scale-95 whitespace-nowrap">
+                    📊 Export to Sheets
+                </button>
+            </div>
+            
+            <p class="mt-3 text-xs text-gray-600 italic">
+                💡 Tip: Your URL is automatically saved for future exports. 
+                <a href="#" id="clear-sheets-url" class="text-emerald-700 hover:text-emerald-900 underline font-semibold">Clear saved URL</a>
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // Constants
+        const CANVAS_SIZE = 1000;
+        const UNIT_RANGE = 10;
+        const SCALE_FACTOR = CANVAS_SIZE / (UNIT_RANGE * 2);
+        const BACKGROUND_CIRCLE_RADIUS_UNITS = 3; 
+
+        const frequencies = [
+            { hz: 31, db: 100 }, { hz: 62.5, db: 100 }, { hz: 125, db: 90 },
+            { hz: 250, db: 85 }, { hz: 500, db: 80 }, { hz: 1000, db: 80 },
+            { hz: 2000, db: 80 }, { hz: 4000, db: 80 }, { hz: 8000, db: 90 },
+            { hz: 12000, db: 85 }, { hz: 16000, db: 85 }
+        ];
+        
+        const colors = [
+            { name: 'Red', hex: '#ef4444' }, { name: 'Orange', hex: '#f97316' },
+            { name: 'Yellow', hex: '#facc15' }, { name: 'Green', hex: '#10b981' },
+            { name: 'Blue', hex: '#3b82f6' }, { name: 'Purple', hex: '#8b5cf6' },
+            { name: 'Black', hex: '#000000' }
+        ];
+
+        // Global state variables
+        let canvas, ctx;
+        let selectedColor = colors[0];
+        let brushSize = 5;
+        let isDrawing = true;
+        let isPainting = false;
+        let currentPath = [];
+        let allFrequencyData = {};
+        let currentFrequency = frequencies[0];
+        let undoStacks = {};
+        let redoStacks = {};
+        let backgroundImage = null;
+
+        // Initialize data structures for each frequency
+        frequencies.forEach(freq => {
+            const key = getFrequencyKey(freq);
+            allFrequencyData[key] = [];
+            undoStacks[key] = [];
+            redoStacks[key] = [];
+        });
+
+        // Utility functions
+        function getFrequencyKey(freq) {
+            return `${freq.hz}Hz_${freq.db}dB`;
+        }
+
+        function getCurrentShapes() {
+            return allFrequencyData[getFrequencyKey(currentFrequency)] || [];
+        }
+
+        function canvasToUnit(x, y) {
+            const centerX = CANVAS_SIZE / 2;
+            const centerY = CANVAS_SIZE / 2;
+            return {
+                x: (x - centerX) / SCALE_FACTOR,
+                y: (centerY - y) / SCALE_FACTOR
+            };
+        }
+
+        function unitToCanvas(x, y) {
+            const centerX = CANVAS_SIZE / 2;
+            const centerY = CANVAS_SIZE / 2;
+            return {
+                x: x * SCALE_FACTOR + centerX,
+                y: centerY - y * SCALE_FACTOR
+            };
+        }
+
+        function hexToColorName(hex) {
+            const colorMap = {
+                '#ef4444': 'Red',
+                '#f97316': 'Orange',
+                '#facc15': 'Yellow',
+                '#10b981': 'Green',
+                '#3b82f6': 'Blue',
+                '#8b5cf6': 'Purple',
+                '#000000': 'Black'
+            };
+            return colorMap[hex] || hex;
+        }
+
+        // ============================================
+        // SIMPLIFIED GEOMETRIC CENTROID CALCULATION
+        // ============================================
+        
+        // Helper: Calculate path length
+        function calculatePathLength(unitPoints) {
+            let length = 0;
+            for (let i = 0; i < unitPoints.length - 1; i++) {
+                const p1 = unitPoints[i];
+                const p2 = unitPoints[i + 1];
+                length += Math.sqrt((p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2);
+            }
+            return length;
+        }
+        
+        // Helper function to calculate distance from point to line segment
+        function distanceToSegment(px, py, x1, y1, x2, y2) {
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const lengthSquared = dx * dx + dy * dy;
+            
+            if (lengthSquared === 0) {
+                return Math.sqrt((px - x1) * (px - x1) + (py - y1) * (py - y1));
+            }
+            
+            let t = ((px - x1) * dx + (py - y1) * dy) / lengthSquared;
+            t = Math.max(0, Math.min(1, t));
+            
+            const closestX = x1 + t * dx;
+            const closestY = y1 + t * dy;
+            
+            return Math.sqrt((px - closestX) * (px - closestX) + (py - closestY) * (py - closestY));
+        }
+        
+        // Helper: Check if shape is closed
+        function isShapeClosed(unitPoints) {
+            if (unitPoints.length < 10) return false;
+            
+            const first = unitPoints[0];
+            const last = unitPoints[unitPoints.length - 1];
+            
+            const closureDistance = Math.sqrt(
+                (last.x - first.x) ** 2 + (last.y - first.y) ** 2
+            );
+            
+            const pathLength = calculatePathLength(unitPoints);
+            const avgSegment = pathLength / (unitPoints.length - 1);
+            
+            const gapPercentage = (closureDistance / pathLength) * 100;
+            
+            // Calculate total angle change (rotation)
+            let totalAngleChange = 0;
+            
+            for (let i = 1; i < unitPoints.length - 1; i++) {
+                const p0 = unitPoints[i - 1];
+                const p1 = unitPoints[i];
+                const p2 = unitPoints[i + 1];
+                
+                const v1x = p1.x - p0.x;
+                const v1y = p1.y - p0.y;
+                const v2x = p2.x - p1.x;
+                const v2y = p2.y - p1.y;
+                
+                const mag1 = Math.sqrt(v1x * v1x + v1y * v1y);
+                const mag2 = Math.sqrt(v2x * v2x + v2y * v2y);
+                
+                if (mag1 > 0 && mag2 > 0) {
+                    const dot = v1x * v2x + v1y * v2y;
+                    const cosAngle = dot / (mag1 * mag2);
+                    const angle = Math.acos(Math.max(-1, Math.min(1, cosAngle)));
+                    totalAngleChange += angle;
+                }
+            }
+            
+            const fullRotation = 2 * Math.PI;
+            const rotationPercentage = (totalAngleChange / fullRotation) * 100;
+            
+            // Strategy 1: Very tight closure
+            if (gapPercentage < 2.0) {
+                if (closureDistance > avgSegment * 0.5) {
+                    const steps = Math.max(3, Math.ceil(closureDistance / avgSegment));
+                    for (let i = 1; i < steps; i++) {
+                        const t = i / steps;
+                        unitPoints.push({
+                            x: last.x + (first.x - last.x) * t,
+                            y: last.y + (first.y - last.y) * t
+                        });
+                    }
+                }
+                return true;
+            }
+            
+            // Strategy 2: Good rotation with reasonable gap
+            if (gapPercentage < 10.0 && rotationPercentage >= 70.0) {
+                if (closureDistance > avgSegment * 0.5) {
+                    const steps = Math.max(3, Math.ceil(closureDistance / avgSegment));
+                    for (let i = 1; i < steps; i++) {
+                        const t = i / steps;
+                        unitPoints.push({
+                            x: last.x + (first.x - last.x) * t,
+                            y: last.y + (first.y - last.y) * t
+                        });
+                    }
+                }
+                return true;
+            }
+            
+            // Strategy 3: Excellent rotation with slightly larger gap
+            if (gapPercentage < 15.0 && rotationPercentage >= 85.0) {
+                if (closureDistance > avgSegment * 0.5) {
+                    const steps = Math.max(3, Math.ceil(closureDistance / avgSegment));
+                    for (let i = 1; i < steps; i++) {
+                        const t = i / steps;
+                        unitPoints.push({
+                            x: last.x + (first.x - last.x) * t,
+                            y: last.y + (first.y - last.y) * t
+                        });
+                    }
+                }
+                return true;
+            }
+            
+            return false;
+        }
+        
+        // Helper: Point-in-polygon test using ray casting
+        function isPointInPolygon(x, y, polygon) {
+            let inside = false;
+            for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+                const xi = polygon[i].x, yi = polygon[i].y;
+                const xj = polygon[j].x, yj = polygon[j].y;
+                
+                const intersect = ((yi > y) !== (yj > y))
+                    && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+                if (intersect) inside = !inside;
+            }
+            return inside;
+        }
+        
+        // Pixel-Based Area calculation
+        function calculatePixelBasedArea(unitPoints, brushSize, resolution = null) {
+            if (unitPoints.length === 0) return 0;
+            
+            const isClosed = isShapeClosed(unitPoints);
+            const fullBrushRadius = brushSize / SCALE_FACTOR / 2;
+            const brushRadius = fullBrushRadius;
+            
+            if (resolution === null) {
+                if (brushRadius < 0.05) {
+                    resolution = 0.05;
+                } else if (brushRadius < 0.1) {
+                    resolution = 0.075;
+                } else {
+                    resolution = 0.1;
+                }
+            }
+            
+            // Find bounding box
+            let minX = unitPoints[0].x, maxX = unitPoints[0].x;
+            let minY = unitPoints[0].y, maxY = unitPoints[0].y;
+            
+            for (const p of unitPoints) {
+                minX = Math.min(minX, p.x);
+                maxX = Math.max(maxX, p.x);
+                minY = Math.min(minY, p.y);
+                maxY = Math.max(maxY, p.y);
+            }
+            
+            minX -= brushRadius;
+            maxX += brushRadius;
+            minY -= brushRadius;
+            maxY += brushRadius;
+            
+            let paintedCells = 0;
+            
+            for (let x = minX; x <= maxX; x += resolution) {
+                for (let y = minY; y <= maxY; y += resolution) {
+                    let isPainted = false;
+                    
+                    if (isClosed) {
+                        if (isPointInPolygon(x, y, unitPoints)) {
+                            isPainted = true;
+                        } else {
+                            for (let i = 0; i < unitPoints.length - 1; i++) {
+                                const p1 = unitPoints[i];
+                                const p2 = unitPoints[i + 1];
+                                const dist = distanceToSegment(x, y, p1.x, p1.y, p2.x, p2.y);
+                                if (dist <= brushRadius) {
+                                    isPainted = true;
+                                    break;
+                                }
+                            }
+                        }
+                    } else {
+                        for (let i = 0; i < unitPoints.length - 1; i++) {
+                            const p1 = unitPoints[i];
+                            const p2 = unitPoints[i + 1];
+                            const dist = distanceToSegment(x, y, p1.x, p1.y, p2.x, p2.y);
+                            if (dist <= brushRadius) {
+                                isPainted = true;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (isPainted) {
+                        paintedCells++;
+                    }
+                }
+            }
+            
+            const cellArea = resolution * resolution;
+            const totalArea = paintedCells * cellArea;
+            
+            let adjustedArea = totalArea;
+            
+            if (isClosed) {
+                let perimeter = 0;
+                for (let i = 0; i < unitPoints.length; i++) {
+                    const p1 = unitPoints[i];
+                    const p2 = unitPoints[(i + 1) % unitPoints.length];
+                    const dx = p2.x - p1.x;
+                    const dy = p2.y - p1.y;
+                    perimeter += Math.sqrt(dx * dx + dy * dy);
+                }
+                
+                const outlineArea = perimeter * (brushRadius * 2) * 0.50;
+                adjustedArea = Math.max(0, totalArea - outlineArea);
+            }
+            
+            return adjustedArea;
+        }
+        
+        // SIMPLIFIED: Basic Geometric Centroid Calculation
+        // Resamples points uniformly along path to avoid drawing-speed bias
+        function calculateGeometricCentroid(points) {
+            if (points.length === 0) {
+                return { x: 0, y: 0 };
+            }
+            
+            if (points.length === 1) {
+                const unitPoint = canvasToUnit(points[0].x, points[0].y);
+                return { x: unitPoint.x, y: unitPoint.y };
+            }
+            
+            // Convert canvas points to unit coordinates
+            const unitPoints = points.map(p => canvasToUnit(p.x, p.y));
+            
+            // Calculate total path length
+            let totalLength = 0;
+            const segmentLengths = [];
+            
+            for (let i = 0; i < unitPoints.length - 1; i++) {
+                const dx = unitPoints[i + 1].x - unitPoints[i].x;
+                const dy = unitPoints[i + 1].y - unitPoints[i].y;
+                const length = Math.sqrt(dx * dx + dy * dy);
+                segmentLengths.push(length);
+                totalLength += length;
+            }
+            
+            if (totalLength === 0) {
+                // All points are the same, just return that point
+                return { x: unitPoints[0].x, y: unitPoints[0].y };
+            }
+            
+            // Resample points uniformly along the path
+            // Use enough samples to represent the shape well (at least 100, or more for longer paths)
+            const numSamples = Math.max(100, Math.floor(totalLength / 0.1));
+            const sampleInterval = totalLength / numSamples;
+            
+            const resampledPoints = [];
+            let currentDistance = 0;
+            let targetDistance = 0;
+            let segmentIndex = 0;
+            let segmentProgress = 0;
+            
+            resampledPoints.push({ x: unitPoints[0].x, y: unitPoints[0].y });
+            
+            for (let sample = 1; sample < numSamples; sample++) {
+                targetDistance = sample * sampleInterval;
+                
+                // Find which segment contains this target distance
+                while (segmentIndex < segmentLengths.length && 
+                       currentDistance + segmentLengths[segmentIndex] < targetDistance) {
+                    currentDistance += segmentLengths[segmentIndex];
+                    segmentIndex++;
+                }
+                
+                if (segmentIndex >= segmentLengths.length) break;
+                
+                // Interpolate within the segment
+                segmentProgress = (targetDistance - currentDistance) / segmentLengths[segmentIndex];
+                
+                const p1 = unitPoints[segmentIndex];
+                const p2 = unitPoints[segmentIndex + 1];
+                
+                const x = p1.x + (p2.x - p1.x) * segmentProgress;
+                const y = p1.y + (p2.y - p1.y) * segmentProgress;
+                
+                resampledPoints.push({ x, y });
+            }
+            
+            // Add the last point
+            const lastPoint = unitPoints[unitPoints.length - 1];
+            resampledPoints.push({ x: lastPoint.x, y: lastPoint.y });
+            
+            // Now calculate the centroid from uniformly sampled points
+            let sumX = 0;
+            let sumY = 0;
+            
+            for (const point of resampledPoints) {
+                sumX += point.x;
+                sumY += point.y;
+            }
+            
+            const centroidX = sumX / resampledPoints.length;
+            const centroidY = sumY / resampledPoints.length;
+            
+            return { x: centroidX, y: centroidY };
+        }
+        
+        // Main centroid calculation function
+        function calculateCentroid(points) {
+            if (points.length < 2) {
+                if (points.length === 0) return { area: 0, x: 0, y: 0 };
+                const unitPoint = canvasToUnit(points[0].x, points[0].y);
+                return { area: 0, x: unitPoint.x, y: unitPoint.y };
+            }
+            
+            const unitPoints = points.map(p => canvasToUnit(p.x, p.y));
+            
+            // Check if shape is closed (this may modify unitPoints to add closure)
+            isShapeClosed(unitPoints);
+            
+            // Calculate area for all shapes (closed or open)
+            const area = calculatePixelBasedArea(unitPoints, brushSize);
+            
+            // Calculate geometric centroid (simple average of all points)
+            const centroid = calculateGeometricCentroid(points);
+            
+            return { 
+                area: area, 
+                x: centroid.x, 
+                y: centroid.y 
+            };
+        }
+
+        // Drawing functions
+        function drawBackgroundCircle() {
+            const center = CANVAS_SIZE / 2;
+            const radiusPixels = BACKGROUND_CIRCLE_RADIUS_UNITS * SCALE_FACTOR; 
+            
+            ctx.save();
+            
+            ctx.beginPath();
+            ctx.arc(center, center, radiusPixels, 0, 2 * Math.PI);
+            
+            ctx.strokeStyle = '#9ca3af';
+            ctx.lineWidth = 2;
+            
+            ctx.stroke();
+            
+            ctx.restore();
+        }
+        
+        function drawGrid() {
+            const center = CANVAS_SIZE / 2;
+            const gridColor = '#e5e7eb';
+            const axisColor = '#9ca3af';
+            const labelColor = '#6b7280';
+            
+            ctx.save();
+            ctx.strokeStyle = gridColor;
+            ctx.lineWidth = 1;
+            
+            // Draw grid lines
+            for (let i = -UNIT_RANGE + 1; i < UNIT_RANGE; i++) {
+                const coord = unitToCanvas(i, i);
+                
+                if (i !== 0) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, coord.y);
+                    ctx.lineTo(CANVAS_SIZE, coord.y);
+                    ctx.stroke();
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(coord.x, 0);
+                    ctx.lineTo(coord.x, CANVAS_SIZE);
+                    ctx.stroke();
+                }
+            }
+            
+            // Draw axes
+            ctx.strokeStyle = axisColor;
+            ctx.lineWidth = 2;
+            
+            ctx.beginPath();
+            ctx.moveTo(0, center);
+            ctx.lineTo(CANVAS_SIZE, center);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(center, 0);
+            ctx.lineTo(center, CANVAS_SIZE);
+            ctx.stroke();
+
+            // Draw labels
+            ctx.fillStyle = labelColor;
+            ctx.font = 'bold 12px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            // X-axis labels
+            for (let i = -UNIT_RANGE; i <= UNIT_RANGE; i += 2) {
+                if (i === 0) continue;
+                const coord = unitToCanvas(i, 0);
+                const labelY = i === UNIT_RANGE || i === -UNIT_RANGE ? center + 25 : center + 20;
+                ctx.fillText(i.toString(), coord.x, labelY);
+            }
+            
+            // Y-axis labels
+            for (let j = -UNIT_RANGE; j <= UNIT_RANGE; j += 2) {
+                if (j === 0) continue;
+                const coord = unitToCanvas(0, j);
+                if (j === UNIT_RANGE) {
+                    ctx.textAlign = 'left';
+                    ctx.fillText(j.toString(), center + 10, coord.y);
+                } else if (j === -UNIT_RANGE) {
+                    ctx.textAlign = 'left';
+                    ctx.fillText(j.toString(), center + 10, coord.y);
+                } else {
+                    ctx.textAlign = 'left';
+                    ctx.fillText(j.toString(), center + 8, coord.y);
+                }
+            }
+            
+            ctx.textAlign = 'right';
+            ctx.fillText('0', center - 8, center + 20);
+
+            // Draw center point
+            ctx.fillStyle = '#1e40af';
+            ctx.beginPath();
+            ctx.arc(center, center, 5, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        function drawCentroidMarker(centroidX, centroidY, color) {
+            const pos = unitToCanvas(centroidX, centroidY);
+            const markerSize = 12;
+            
+            ctx.save();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 3;
+            ctx.lineCap = 'round';
+            
+            // Draw cross
+            ctx.beginPath();
+            ctx.moveTo(pos.x - markerSize, pos.y);
+            ctx.lineTo(pos.x + markerSize, pos.y);
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.moveTo(pos.x, pos.y - markerSize);
+            ctx.lineTo(pos.x, pos.y + markerSize);
+            ctx.stroke();
+            
+            // Draw circle
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(pos.x, pos.y, markerSize + 2, 0, Math.PI * 2);
+            ctx.stroke();
+            
+            ctx.restore();
+        }
+        
+        function drawGridOnContext(context) {
+            const center = CANVAS_SIZE / 2;
+            const gridColor = '#e5e7eb';
+            const axisColor = '#9ca3af';
+            const labelColor = '#6b7280';
+            
+            context.save();
+            context.strokeStyle = gridColor;
+            context.lineWidth = 1;
+            
+            for (let i = -UNIT_RANGE + 1; i < UNIT_RANGE; i++) {
+                const coord = unitToCanvas(i, i);
+                
+                if (i !== 0) {
+                    context.beginPath();
+                    context.moveTo(0, coord.y);
+                    context.lineTo(CANVAS_SIZE, coord.y);
+                    context.stroke();
+                    
+                    context.beginPath();
+                    context.moveTo(coord.x, 0);
+                    context.lineTo(coord.x, CANVAS_SIZE);
+                    context.stroke();
+                }
+            }
+            
+            context.strokeStyle = axisColor;
+            context.lineWidth = 2;
+            
+            context.beginPath();
+            context.moveTo(0, center);
+            context.lineTo(CANVAS_SIZE, center);
+            context.stroke();
+
+            context.beginPath();
+            context.moveTo(center, 0);
+            context.lineTo(center, CANVAS_SIZE);
+            context.stroke();
+
+            context.fillStyle = labelColor;
+            context.font = 'bold 12px sans-serif';
+            context.textAlign = 'center';
+            context.textBaseline = 'middle';
+            
+            for (let i = -UNIT_RANGE; i <= UNIT_RANGE; i += 2) {
+                if (i === 0) continue;
+                const coord = unitToCanvas(i, 0);
+                const labelY = i === UNIT_RANGE || i === -UNIT_RANGE ? center + 25 : center + 20;
+                context.fillText(i.toString(), coord.x, labelY);
+            }
+            
+            for (let j = -UNIT_RANGE; j <= UNIT_RANGE; j += 2) {
+                if (j === 0) continue;
+                const coord = unitToCanvas(0, j);
+                if (j === UNIT_RANGE) {
+                    context.textAlign = 'left';
+                    context.fillText(j.toString(), center + 10, coord.y);
+                } else if (j === -UNIT_RANGE) {
+                    context.textAlign = 'left';
+                    context.fillText(j.toString(), center + 10, coord.y);
+                } else {
+                    context.textAlign = 'left';
+                    context.fillText(j.toString(), center + 8, coord.y);
+                }
+            }
+            
+            context.textAlign = 'right';
+            context.fillText('0', center - 8, center + 20);
+
+            context.fillStyle = '#1e40af';
+            context.beginPath();
+            context.arc(center, center, 5, 0, Math.PI * 2);
+            context.fill();
+
+            context.restore();
+        }
+        
+        function drawCentroidMarkerOnContext(context, centroidX, centroidY, color) {
+            const pos = unitToCanvas(centroidX, centroidY);
+            const markerSize = 12;
+            
+            context.save();
+            context.strokeStyle = color;
+            context.lineWidth = 3;
+            context.lineCap = 'round';
+            
+            context.beginPath();
+            context.moveTo(pos.x - markerSize, pos.y);
+            context.lineTo(pos.x + markerSize, pos.y);
+            context.stroke();
+            
+            context.beginPath();
+            context.moveTo(pos.x, pos.y - markerSize);
+            context.lineTo(pos.x, pos.y + markerSize);
+            context.stroke();
+            
+            context.lineWidth = 2;
+            context.beginPath();
+            context.arc(pos.x, pos.y, markerSize + 2, 0, Math.PI * 2);
+            context.stroke();
+            
+            context.restore();
+        }
+        
+        function generateImageForFrequency(freq) {
+            const key = getFrequencyKey(freq);
+            const shapes = allFrequencyData[key];
+            
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = CANVAS_SIZE;
+            tempCanvas.height = CANVAS_SIZE;
+            const tempCtx = tempCanvas.getContext('2d');
+            
+            tempCtx.fillStyle = '#ffffff';
+            tempCtx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+            
+            if (backgroundImage) {
+                tempCtx.drawImage(backgroundImage, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
+            }
+            
+            const center = CANVAS_SIZE / 2;
+            const radiusPixels = BACKGROUND_CIRCLE_RADIUS_UNITS * SCALE_FACTOR;
+            tempCtx.save();
+            tempCtx.beginPath();
+            tempCtx.arc(center, center, radiusPixels, 0, 2 * Math.PI);
+            tempCtx.strokeStyle = '#9ca3af';
+            tempCtx.lineWidth = 2;
+            tempCtx.stroke();
+            tempCtx.restore();
+            
+            drawGridOnContext(tempCtx);
+            
+            shapes.forEach(path => {
+                if (path.length < 2) return;
+                
+                tempCtx.beginPath();
+                tempCtx.lineJoin = 'round';
+                tempCtx.lineCap = 'round';
+                tempCtx.moveTo(path[0].x, path[0].y);
+
+                for (let i = 1; i < path.length; i++) {
+                    const p = path[i];
+                    tempCtx.lineWidth = p.size;
+                    tempCtx.strokeStyle = p.color;
+                    tempCtx.lineTo(p.x, p.y);
+                }
+                tempCtx.stroke();
+                
+                const { x, y } = calculateCentroid(path);
+                drawCentroidMarkerOnContext(tempCtx, x, y, path[0].color);
+            });
+            
+            return tempCanvas.toDataURL('image/png');
+        }
+        
+        function getAndIncrementParticipantExportCount(participantName) {
+            if (!participantName || participantName === 'P-Anonymous') {
+                return '01';
+            }
+
+            const storageKey = `exportCount_${participantName.replace(/[^a-zA-Z0-9]/g, '_')}`;
+            
+            let currentCount = parseInt(localStorage.getItem(storageKey) || '0');
+            
+            const newCount = currentCount + 1;
+            
+            localStorage.setItem(storageKey, newCount.toString());
+            
+            return String(newCount).padStart(2, '0');
+        }
+
+        function downloadAllImagesAsZip() {
+            if (typeof JSZip === 'undefined' || typeof saveAs === 'undefined') {
+                alert('ZIP functionality libraries are not loaded correctly.');
+                return;
+            }
+
+            const participantName = document.getElementById('participant-name').value.trim() || 'P-Anonymous';
+            
+            let hasDrawings = false;
+            for (const key in allFrequencyData) {
+                if (allFrequencyData[key].length > 0) {
+                    hasDrawings = true;
+                    break;
+                }
+            }
+            
+            if (!hasDrawings) {
+                alert('No drawings found. Please draw shapes for at least one frequency to create a zip file.');
+                return;
+            }
+            
+            const chronologicalCount = getAndIncrementParticipantExportCount(participantName);
+            
+            document.getElementById('status-message').textContent = 'Status: Generating ZIP file...';
+            
+            const zip = new JSZip();
+            const folderName = `${participantName}_${chronologicalCount}_Drawings`; 
+            const folder = zip.folder(folderName);
+            
+            let filesAdded = 0;
+
+            for (const freq of frequencies) {
+                const key = getFrequencyKey(freq);
+                if (allFrequencyData[key].length > 0) {
+                    const dataURL = generateImageForFrequency(freq);
+                    const filename = `${participantName}_${freq.hz}Hz_${freq.db}dB.png`;
+                    const base64Data = dataURL.split(',')[1];
+                    
+                    folder.file(filename, base64Data, { base64: true });
+                    filesAdded++;
+                }
+            }
+            
+            if (filesAdded === 0) {
+                 document.getElementById('status-message').textContent = 'Status: No drawings found to zip.';
+                 return;
+            }
+            
+            zip.generateAsync({ type: "blob" })
+                .then(function(content) {
+                    saveAs(content, `${participantName}_${chronologicalCount}_Drawings.zip`);
+                    document.getElementById('status-message').textContent = `Status: Successfully generated and downloaded ${filesAdded} images in ZIP file ${chronologicalCount}.`;
+                })
+                .catch(error => {
+                    console.error('ZIP generation error:', error);
+                    document.getElementById('status-message').textContent = 'Status: ZIP generation failed';
+                    alert('An error occurred during ZIP file generation. Check console for details.');
+                });
+        }
+        
+        function redrawCanvas() {
+            const shapes = getCurrentShapes();
+            ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+
+            if (backgroundImage) {
+                ctx.drawImage(backgroundImage, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
+            }
+            
+            drawBackgroundCircle(); 
+            
+            drawGrid();
+
+            shapes.forEach(path => {
+                if (path.length < 2) return;
+                
+                ctx.beginPath();
+                ctx.lineJoin = 'round';
+                ctx.lineCap = 'round';
+                ctx.moveTo(path[0].x, path[0].y);
+
+                for (let i = 1; i < path.length; i++) {
+                    const p = path[i];
+                    ctx.lineWidth = p.size;
+                    ctx.strokeStyle = p.color;
+                    ctx.lineTo(p.x, p.y);
+                }
+                ctx.stroke();
+                
+                const { x, y } = calculateCentroid(path);
+                drawCentroidMarker(x, y, path[0].color);
+            });
+
+            updateUndoRedoButtons();
+        }
+
+        function runAnalysis() {
+            const shapes = getCurrentShapes();
+            const results = [];
+
+            shapes.forEach((path, index) => {
+                const { area, x, y } = calculateCentroid(path);
+                results.push({
+                    id: index + 1,
+                    color: path[0].color,
+                    area: area,
+                    centroidX: x,
+                    centroidY: y
+                });
+            });
+
+            displayAnalysisResults(results);
+            return results;
+        }
+
+        function displayAnalysisResults(results) {
+            const container = document.getElementById('results-table-container');
+            if (results.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 italic">Draw shapes for this frequency to see results.</p>';
+                return;
+            }
+
+            let html = `
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-blue-50">
+                            <tr>
+                                <th class="px-3 py-2 text-left text-xs font-medium text-blue-700 uppercase">#</th>
+                                <th class="px-3 py-2 text-left text-xs font-medium text-blue-700 uppercase">Color</th>
+                                <th class="px-3 py-2 text-left text-xs font-medium text-blue-700 uppercase">Area (Grid Squares)</th>
+                                <th class="px-3 py-2 text-left text-xs font-medium text-blue-700 uppercase">Centroid X</th>
+                                <th class="px-3 py-2 text-left text-xs font-medium text-blue-700 uppercase">Centroid Y</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+            `;
+
+            results.forEach(r => {
+                html += `
+                    <tr>
+                        <td class="px-3 py-2 text-sm font-medium">${r.id}</td>
+                        <td class="px-3 py-2 text-sm">
+                            <div class="w-5 h-5 rounded-full" style="background-color: ${r.color}; border: 1px solid #ccc;"></div>
+                        </td>
+                        <td class="px-3 py-2 text-sm font-mono">${r.area.toFixed(3)}</td>
+                        <td class="px-3 py-2 text-sm font-mono">${r.centroidX.toFixed(3)}</td>
+                        <td class="px-3 py-2 text-sm font-mono">${r.centroidY.toFixed(3)}</td>
+                    </tr>
+                `;
+            });
+
+            html += '</tbody></table></div>';
+            container.innerHTML = html;
+        }
+
+        function saveState() {
+            const key = getFrequencyKey(currentFrequency);
+            undoStacks[key].push(JSON.stringify(getCurrentShapes()));
+            redoStacks[key] = [];
+            updateUndoRedoButtons();
+        }
+
+        function undo() {
+            const key = getFrequencyKey(currentFrequency);
+            if (undoStacks[key].length > 0) {
+                redoStacks[key].push(JSON.stringify(getCurrentShapes()));
+                const prevState = JSON.parse(undoStacks[key].pop());
+                allFrequencyData[key] = prevState;
+                redrawCanvas();
+                runAnalysis();
+            }
+        }
+
+        function redo() {
+            const key = getFrequencyKey(currentFrequency);
+            if (redoStacks[key].length > 0) {
+                undoStacks[key].push(JSON.stringify(getCurrentShapes()));
+                const nextState = JSON.parse(redoStacks[key].pop());
+                allFrequencyData[key] = nextState;
+                redrawCanvas();
+                runAnalysis();
+            }
+        }
+
+        function updateUndoRedoButtons() {
+            const key = getFrequencyKey(currentFrequency);
+            document.getElementById('undo-button').disabled = undoStacks[key].length === 0;
+            document.getElementById('redo-button').disabled = redoStacks[key].length === 0;
+        }
+
+        function getEventPoint(event) {
+            const rect = canvas.getBoundingClientRect();
+            let clientX, clientY;
+
+            if (event.touches && event.touches.length > 0) {
+                clientX = event.touches[0].clientX;
+                clientY = event.touches[0].clientY;
+            } else if (event.changedTouches && event.changedTouches.length > 0) {
+                clientX = event.changedTouches[0].clientX;
+                clientY = event.changedTouches[0].clientY;
+            } else {
+                clientX = event.clientX;
+                clientY = event.clientY;
+            }
+
+            return {
+                x: (clientX - rect.left) * (CANVAS_SIZE / rect.width),
+                y: (clientY - rect.top) * (CANVAS_SIZE / rect.height)
+            };
+        }
+
+        function startDrawing(e) {
+            if (!isDrawing) return;
+            isPainting = true;
+            saveState();
+
+            const point = getEventPoint(e);
+            currentPath = [{ x: point.x, y: point.y, color: selectedColor.hex, size: brushSize }];
+            
+            ctx.beginPath();
+            ctx.moveTo(point.x, point.y);
+            ctx.lineWidth = brushSize;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.strokeStyle = selectedColor.hex;
+
+            e.preventDefault();
+        }
+
+        function draw(e) {
+            if (!isPainting || !isDrawing) return;
+
+            const point = getEventPoint(e);
+            currentPath.push({ x: point.x, y: point.y, color: selectedColor.hex, size: brushSize });
+
+            ctx.lineTo(point.x, point.y);
+            ctx.stroke();
+            e.preventDefault();
+        }
+
+        function stopDrawing() {
+            if (!isPainting) return;
+            isPainting = false;
+            ctx.closePath();
+
+            if (currentPath.length > 1) {
+                const currentShapes = getCurrentShapes();
+                currentShapes.push(currentPath);
+                redrawCanvas();
+                runAnalysis();
+            } else {
+                undoStacks[getFrequencyKey(currentFrequency)].pop();
+                updateUndoRedoButtons();
+            }
+
+            currentPath = [];
+        }
+
+        function createFrequencyTabs() {
+            const container = document.getElementById('frequency-tabs');
+            container.innerHTML = '';
+            
+            frequencies.forEach((freq) => {
+                const key = getFrequencyKey(freq);
+                const button = document.createElement('button');
+                button.className = 'frequency-tab px-4 py-2 rounded-xl font-bold transition-all text-sm bg-gray-100 text-gray-700';
+                button.textContent = `${freq.hz} Hz (${freq.db} dB)`;
+                button.dataset.key = key;
+                
+                button.addEventListener('click', () => {
+                    currentFrequency = freq;
+                    document.querySelectorAll('.frequency-tab').forEach(b => b.classList.remove('active'));
+                    button.classList.add('active');
+                    redrawCanvas();
+                    runAnalysis();
+                    document.getElementById('status-message').textContent = `Status: Switched to ${freq.hz} Hz at ${freq.db} dB`;
+                });
+                
+                container.appendChild(button);
+            });
+            
+            container.querySelector('button')?.click();
+        }
+
+        function createColorPalette() {
+            const container = document.getElementById('color-palette');
+            container.innerHTML = '';
+            
+            colors.forEach((color, index) => {
+                const button = document.createElement('button');
+                button.className = 'color-button w-14 h-14 rounded-full shadow-md transition-all transform hover:scale-110 border-4 border-gray-200';
+                button.style.backgroundColor = color.hex;
+                button.title = color.name;
+                
+                if (index === 0) button.classList.add('selected');
+                
+                button.addEventListener('click', () => {
+                    document.querySelectorAll('.color-button').forEach(btn => btn.classList.remove('selected'));
+                    button.classList.add('selected');
+                    selectedColor = color;
+                    document.getElementById('status-message').textContent = `Status: Color set to ${color.name}`;
+                });
+                
+                container.appendChild(button);
+            });
+        }
+
+        function handleImageUpload(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const img = new Image();
+                    img.onload = function() {
+                        backgroundImage = img;
+                        redrawCanvas();
+                        document.getElementById('status-message').textContent = 'Status: Background image loaded successfully';
+                    }
+                    img.onerror = function() {
+                        backgroundImage = null;
+                        document.getElementById('status-message').textContent = 'Status: Error loading image';
+                    }
+                    img.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function exportCSV() {
+            const name = document.getElementById('participant-name').value || 'P-Anonymous';
+            let csvContent = "data:text/csv;charset=utf-8,";
+            csvContent += "Participant,Frequency_Hz,Frequency_dB,Shape_ID,Color_Hex,Area_Grid_Squares,Centroid_X,Centroid_Y,Total_Points,Raw_Path_Coordinates\n";
+            
+            for (const key in allFrequencyData) {
+                const freqInfo = frequencies.find(f => getFrequencyKey(f) === key);
+                if (!freqInfo) continue;
+
+                const shapes = allFrequencyData[key];
+                shapes.forEach((path, index) => {
+                    const { area, x, y } = calculateCentroid(path);
+                    const rawCoords = path.map(p => {
+                        const unitPoint = canvasToUnit(p.x, p.y);
+                        return `${unitPoint.x.toFixed(3)},${unitPoint.y.toFixed(3)}`;
+                    }).join('|');
+                    
+                    csvContent += `${name},${freqInfo.hz},${freqInfo.db},${index + 1},${path[0].color},${area.toFixed(4)},${x.toFixed(4)},${y.toFixed(4)},${path.length},"${rawCoords}"\n`;
+                });
+            }
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `${name}_sound_object_data.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            document.getElementById('status-message').textContent = 'Status: All data exported to CSV';
+        }
+
+        async function exportToGoogleSheets() {
+            const participantName = document.getElementById('participant-name').value.trim();
+            if (!participantName) {
+                alert('Please enter your name before exporting.');
+                return;
+            }
+
+            const urlInput = document.getElementById('sheets-url-input');
+            const sheetsUrl = urlInput.value.trim();
+            
+            if (!sheetsUrl) {
+                alert('Please enter your Google Apps Script Web App URL.');
+                return;
+            }
+            
+            localStorage.setItem('sheetsUrl', sheetsUrl);
+
+            let allShapes = [];
+            frequencies.forEach(freq => {
+                const key = getFrequencyKey(freq);
+                const shapes = allFrequencyData[key];
+                shapes.forEach(shape => {
+                    const { area, x, y } = calculateCentroid(shape);
+                    allShapes.push({
+                        frequency: freq.hz,
+                        dbSPL: freq.db,
+                        color: hexToColorName(shape[0].color),
+                        area: area.toFixed(4),
+                        centroidX: x.toFixed(4),
+                        centroidY: y.toFixed(4)
+                    });
+                });
+            });
+
+            if (allShapes.length === 0) {
+                alert('No data to export. Please draw some shapes first.');
+                return;
+            }
+
+            const data = {
+                participant: participantName,
+                shapes: allShapes
+            };
+
+            try {
+                document.getElementById('status-message').textContent = 'Status: Exporting to Google Sheets...';
+                await fetch(sheetsUrl, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                document.getElementById('status-message').textContent = 'Status: Data exported successfully!';
+                alert('Data exported successfully to Google Sheets! (Check your sheet in a moment)');
+            } catch (error) {
+                console.error('Export error:', error);
+                document.getElementById('status-message').textContent = 'Status: Export failed';
+                alert('Export failed. Please check your Web App URL and ensure CORS is configured for POST requests.');
+            }
+        }
+
+        async function exportToGoogleDrive() {
+            if (typeof JSZip === 'undefined') {
+                alert('ZIP functionality library is not loaded correctly.');
+                return;
+            }
+
+            const participantName = document.getElementById('participant-name').value.trim();
+            if (!participantName) {
+                alert('Please enter your name before exporting.');
+                return;
+            }
+
+            const urlInput = document.getElementById('drive-url-input');
+            const driveUrl = urlInput.value.trim();
+            
+            if (!driveUrl) {
+                alert('Please enter your Google Apps Script Web App URL for Drive export.');
+                return;
+            }
+            
+            localStorage.setItem('driveUrl', driveUrl);
+
+            let hasDrawings = false;
+            for (const key in allFrequencyData) {
+                if (allFrequencyData[key].length > 0) {
+                    hasDrawings = true;
+                    break;
+                }
+            }
+            
+            if (!hasDrawings) {
+                alert('No drawings found. Please draw shapes for at least one frequency.');
+                return;
+            }
+
+            document.getElementById('status-message').textContent = 'Status: Generating ZIP file for Drive...';
+
+            try {
+                const zip = new JSZip();
+                const chronologicalCount = getAndIncrementParticipantExportCount(participantName);
+                const folderName = `${participantName}_${chronologicalCount}_Drawings`;
+                const folder = zip.folder(folderName);
+                
+                let filesAdded = 0;
+
+                for (const freq of frequencies) {
+                    const key = getFrequencyKey(freq);
+                    if (allFrequencyData[key].length > 0) {
+                        const dataURL = generateImageForFrequency(freq);
+                        const filename = `${participantName}_${freq.hz}Hz_${freq.db}dB.png`;
+                        const base64Data = dataURL.split(',')[1];
+                        
+                        folder.file(filename, base64Data, { base64: true });
+                        filesAdded++;
+                    }
+                }
+
+                if (filesAdded === 0) {
+                    document.getElementById('status-message').textContent = 'Status: No drawings found to export.';
+                    return;
+                }
+
+                document.getElementById('status-message').textContent = 'Status: Uploading to Google Drive...';
+                const zipBlob = await zip.generateAsync({ type: "base64" });
+                const fileName = `${participantName}_${chronologicalCount}_Drawings.zip`;
+
+                await fetch(driveUrl, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        fileName: fileName,
+                        fileData: zipBlob,
+                        mimeType: 'application/zip'
+                    })
+                });
+
+                document.getElementById('status-message').textContent = `Status: Successfully uploaded ${filesAdded} images to Google Drive!`;
+                alert(`${filesAdded} drawings exported to Google Drive successfully! Check your Drive folder.`);
+
+            } catch (error) {
+                console.error('Drive export error:', error);
+                document.getElementById('status-message').textContent = 'Status: Drive export failed';
+                alert('Export to Google Drive failed. Please check your Web App URL and try again.');
+            }
+        }
+
+        function resetAll() {
+            document.getElementById('participant-name').value = '';
+            
+            frequencies.forEach(freq => {
+                const key = getFrequencyKey(freq);
+                allFrequencyData[key] = [];
+                undoStacks[key] = [];
+                redoStacks[key] = [];
+            });
+            
+            selectedColor = colors[0];
+            brushSize = 5;
+            document.getElementById('brush-size-slider').value = 5;
+            document.getElementById('brush-size-value').textContent = '5';
+            
+            document.querySelectorAll('.color-button').forEach((btn, index) => {
+                btn.classList.remove('selected');
+                if (index === 0) btn.classList.add('selected');
+            });
+            
+            redrawCanvas();
+            runAnalysis();
+            
+            document.getElementById('status-message').textContent = 'Status: All data has been reset (background image preserved)';
+            
+            const firstFreqTab = document.querySelector('.frequency-tab');
+            if (firstFreqTab) {
+                firstFreqTab.click();
+            }
+        }
+
+        function initializeCanvas() {
+            canvas = document.getElementById('drawing-canvas');
+            ctx = canvas.getContext('2d');
+            
+            canvas.width = CANVAS_SIZE;
+            canvas.height = CANVAS_SIZE;
+
+            canvas.addEventListener('mousedown', startDrawing);
+            canvas.addEventListener('mousemove', draw);
+            canvas.addEventListener('mouseup', stopDrawing);
+            canvas.addEventListener('mouseleave', stopDrawing);
+
+            canvas.addEventListener('touchstart', startDrawing, { passive: false });
+            canvas.addEventListener('touchmove', draw, { passive: false });
+            canvas.addEventListener('touchend', stopDrawing);
+            canvas.addEventListener('touchcancel', stopDrawing);
+            
+            createFrequencyTabs();
+            createColorPalette();
+            redrawCanvas();
+        }
+
+        window.onload = function() {
+            initializeCanvas();
+            
+            const savedSheetsUrl = localStorage.getItem('sheetsUrl');
+            if (savedSheetsUrl) {
+                document.getElementById('sheets-url-input').value = savedSheetsUrl;
+            }
+            
+            const savedDriveUrl = localStorage.getItem('driveUrl');
+            if (savedDriveUrl) {
+                document.getElementById('drive-url-input').value = savedDriveUrl;
+            }
+            
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('service-worker.js')
+                    .then(registration => {
+                        console.log('Service Worker registered:', registration);
+                    })
+                    .catch(error => {
+                        console.log('Service Worker registration failed:', error);
+                    });
+            }
+            
+            let deferredPrompt;
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                deferredPrompt = e;
+            });
+            
+            document.getElementById('brush-size-slider').addEventListener('input', (e) => {
+                brushSize = parseInt(e.target.value);
+                document.getElementById('brush-size-value').textContent = brushSize;
+            });
+            
+            document.getElementById('clear-canvas').addEventListener('click', () => {
+                const message = `Are you sure you want to clear the drawing for ${currentFrequency.hz} Hz?`;
+                if (confirm(message)) {
+                    saveState();
+                    allFrequencyData[getFrequencyKey(currentFrequency)] = [];
+                    redrawCanvas();
+                    runAnalysis();
+                    document.getElementById('status-message').textContent = 'Status: Canvas cleared for current frequency';
+                }
+            });
+            
+            document.getElementById('toggle-drawing').addEventListener('click', () => {
+                isDrawing = !isDrawing;
+                const button = document.getElementById('toggle-drawing');
+                if (isDrawing) {
+                    button.textContent = 'Stop Drawing';
+                    button.className = 'w-full sm:w-auto px-6 py-2.5 rounded-xl font-bold text-sm transition-all bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700 shadow-lg hover:shadow-xl';
+                    canvas.style.cursor = 'crosshair';
+                    document.getElementById('status-message').textContent = 'Status: Drawing Enabled';
+                } else {
+                    button.textContent = 'Start Drawing';
+                    button.className = 'w-full sm:w-auto px-6 py-2.5 rounded-xl font-bold text-sm transition-all bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700 shadow-lg hover:shadow-xl';
+                    canvas.style.cursor = 'default';
+                    document.getElementById('status-message').textContent = 'Status: Drawing Disabled';
+                }
+            });
+            
+            document.getElementById('undo-button').addEventListener('click', undo);
+            document.getElementById('redo-button').addEventListener('click', redo);
+            document.getElementById('image-upload').addEventListener('change', handleImageUpload);
+            
+            document.getElementById('download-all-zip').addEventListener('click', downloadAllImagesAsZip);
+            
+            document.getElementById('export-csv').addEventListener('click', exportCSV);
+            document.getElementById('export-drive-btn').addEventListener('click', exportToGoogleDrive);
+            document.getElementById('export-sheets-btn').addEventListener('click', exportToGoogleSheets);
+            
+            document.getElementById('reset-all').addEventListener('click', () => {
+                const confirmMessage = `⚠️ WARNING: This will reset EVERYTHING including:
+• Participant name
+• All drawings for all frequencies
+• All undo/redo history
+• Selected colors and brush settings
+
+The background image will be kept.
+
+Are you sure you want to reset everything?`;
+                
+                if (confirm(confirmMessage)) {
+                    resetAll();
+                }
+            });
+            
+            document.getElementById('clear-sheets-url').addEventListener('click', (e) => {
+                e.preventDefault();
+                localStorage.removeItem('sheetsUrl');
+                document.getElementById('sheets-url-input').value = '';
+                document.getElementById('status-message').textContent = 'Status: Saved Sheets URL cleared';
+            });
+            
+            document.getElementById('clear-drive-url').addEventListener('click', (e) => {
+                e.preventDefault();
+                localStorage.removeItem('driveUrl');
+                document.getElementById('drive-url-input').value = '';
+                document.getElementById('status-message').textContent = 'Status: Saved Drive URL cleared';
+            });
+        };
+    </script>
+</body>
+</html>
