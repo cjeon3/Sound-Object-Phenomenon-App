@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sound Object Average Shape Analyzer - Ultra Optimized</title>
+    <title>Sound Object Analyzer v7.0 - Proper Contour Drawing</title>
+    <meta name="version" content="7.0.0">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
@@ -16,244 +17,90 @@
             background: white;
             border-radius: 0.5rem;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+        }
+        
+        .canvas-container:hover {
+            transform: scale(1.02);
+            transition: transform 0.2s;
         }
         
         .analysis-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
             gap: 1.5rem;
-        }
-        
-        @media (max-width: 768px) {
-            .analysis-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-        
-        .performance-metric {
-            animation: pulse 2s ease-in-out infinite;
-        }
-        
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.7; }
-        }
-        
-        .batch-item {
-            transition: all 0.3s ease;
-        }
-        
-        .progress-bar-fill {
-            transition: width 0.2s ease-out;
         }
     </style>
 </head>
-<body class="p-4 md:p-8">
-    
-    <div class="max-w-7xl mx-auto">
+<body>
+    <div class="max-w-7xl mx-auto p-6">
         <!-- Header -->
-        <header class="text-center mb-8">
-            <h1 class="text-4xl font-extrabold text-blue-800 mb-2">
-                Sound Object Average Shape Analyzer
-                <span class="inline-block ml-2 px-3 py-1 text-xs font-bold bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-full shadow-lg animate-pulse">⚡ ULTRA OPTIMIZED</span>
-            </h1>
-            <p class="text-xl font-semibold text-gray-600">UCI Hearing & Speech Lab</p>
-            <p class="text-sm text-gray-500 mt-2">Import participant drawings and generate averaged visualizations</p>
-            <div class="mt-3 flex justify-center gap-2 text-xs flex-wrap">
-                <span class="px-3 py-1 bg-purple-100 text-purple-700 rounded-full border border-purple-300">🚀 Web Workers</span>
-                <span class="px-3 py-1 bg-blue-100 text-blue-700 rounded-full border border-blue-300">⚡ Parallel Processing</span>
-                <span class="px-3 py-1 bg-green-100 text-green-700 rounded-full border border-green-300">💾 Memory Optimized</span>
-                <span class="px-3 py-1 bg-amber-100 text-amber-700 rounded-full border border-amber-300">📊 Real-time Monitoring</span>
-                <span class="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full border border-indigo-300">🎯 Exact Calculations</span>
-            </div>
-        </header>
-        
-        <!-- Performance Dashboard -->
-        <div id="performance-dashboard" class="hidden bg-gradient-to-r from-purple-50 to-pink-50 p-6 rounded-xl shadow-lg mb-6 border-2 border-purple-200">
-            <h2 class="text-xl font-bold text-purple-800 mb-4 flex items-center gap-2">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-                </svg>
-                Real-Time Performance Metrics
-            </h2>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div class="bg-white p-4 rounded-lg shadow">
-                    <div class="text-xs text-gray-500 font-semibold mb-1">Processing Speed</div>
-                    <div id="speed-metric" class="text-2xl font-bold text-purple-600 performance-metric">0 img/s</div>
-                </div>
-                <div class="bg-white p-4 rounded-lg shadow">
-                    <div class="text-xs text-gray-500 font-semibold mb-1">Time Remaining</div>
-                    <div id="eta-metric" class="text-2xl font-bold text-blue-600 performance-metric">--</div>
-                </div>
-                <div class="bg-white p-4 rounded-lg shadow">
-                    <div class="text-xs text-gray-500 font-semibold mb-1">Workers Active</div>
-                    <div id="workers-metric" class="text-2xl font-bold text-green-600 performance-metric">0</div>
-                </div>
-                <div class="bg-white p-4 rounded-lg shadow">
-                    <div class="text-xs text-gray-500 font-semibold mb-1">Memory Usage</div>
-                    <div id="memory-metric" class="text-2xl font-bold text-amber-600 performance-metric">--</div>
-                </div>
+        <div class="bg-gradient-to-r from-blue-600 to-purple-700 text-white p-6 rounded-xl shadow-xl mb-6">
+            <h1 class="text-4xl font-bold mb-2">Sound Object Analyzer v7.0</h1>
+            <p class="text-blue-100 text-lg">Proper Contour Visualization - No Radial Spikes!</p>
+            <div class="mt-4 flex flex-wrap gap-2">
+                <span class="bg-white/20 px-3 py-1 rounded-full text-sm">✓ Clean Contour Drawing</span>
+                <span class="bg-white/20 px-3 py-1 rounded-full text-sm">✓ Original Shape Preservation</span>
+                <span class="bg-white/20 px-3 py-1 rounded-full text-sm">✓ Proper Averaging</span>
+                <span class="bg-white/20 px-3 py-1 rounded-full text-sm">✓ Publication Ready</span>
             </div>
         </div>
         
         <!-- Instructions -->
-        <div class="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-xl shadow-lg mb-6 border-2 border-blue-200">
-            <h2 class="text-xl font-bold text-blue-800 mb-3 flex items-center gap-2">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-                How to Use
-            </h2>
+        <div class="bg-blue-50 p-6 rounded-xl mb-6 border-2 border-blue-200">
+            <h2 class="text-xl font-bold text-blue-900 mb-3">How to Use</h2>
             <ol class="list-decimal list-inside space-y-2 text-gray-700">
-                <li><strong>Upload Files:</strong> Select PNG files OR ZIP files (even nested ZIPs!) from the Sound Object tool</li>
-                <li><strong>Automatic Extraction:</strong> ZIP files are automatically unpacked to find all PNG images inside</li>
-                <li><strong>Automatic Detection:</strong> Frequency, phase (Red/Blue), and participant are detected from filenames</li>
-                <li><strong>Process Data:</strong> Click "Analyze & Generate Visualizations" - now with parallel processing!</li>
-                <li><strong>View & Export:</strong> See averaged shapes with statistics, download publication-ready figures</li>
+                <li><strong>Upload Images:</strong> Select PNG files or ZIP archives</li>
+                <li><strong>Process:</strong> Click "Analyze & Generate Visualizations"</li>
+                <li><strong>View Results:</strong> Clean composites with proper contours (not radial spikes)</li>
+                <li><strong>Download:</strong> Click any image to save</li>
             </ol>
-            <p class="mt-4 text-sm text-blue-700 font-semibold">
-                📝 Expected filename format: ParticipantID_FrequencyHz_dBdB.png (e.g., P-001_125Hz_90dB.png)
-            </p>
-            <p class="mt-2 text-sm text-green-700 font-semibold bg-green-50 p-3 rounded-lg border border-green-200">
-                📦 <strong>ZIP Support:</strong> Upload one big ZIP file containing multiple participant folders (each as their own ZIP). The tool will automatically extract all nested ZIPs and find every PNG file!
-            </p>
-            <p class="mt-2 text-xs text-purple-700 font-semibold bg-purple-50 p-2 rounded">
-                ⚡ <strong>NEW: Ultra-Optimized Performance:</strong> This version uses Web Workers for parallel processing (3 images per CPU core), advanced memory management to minimize garbage collection, and real-time performance monitoring!
-            </p>
-            <p class="mt-2 text-xs text-green-700 font-semibold bg-green-50 p-2 rounded">
-                ✅ Perfect Consistency: This analyzer uses the EXACT coordinate system (1000×1000px canvas, ±10 unit grid), centroid calculation (uniform resampling), and area calculation (pixel-based with brush radius) as the original drawing tool.
-            </p>
         </div>
         
-        <!-- File Upload Section -->
-        <div class="bg-white p-6 rounded-xl shadow-lg mb-6 border border-gray-100">
-            <h2 class="text-2xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-                <svg class="w-7 h-7 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-                </svg>
-                Upload Participant Images
-            </h2>
+        <!-- File Upload -->
+        <div class="bg-white p-6 rounded-xl shadow-lg mb-6">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">Upload Participant Images</h2>
+            <input 
+                type="file" 
+                id="image-upload" 
+                accept="image/png,.zip,application/zip" 
+                multiple
+                class="block w-full text-sm text-gray-700 mb-4
+                    file:mr-4 file:py-3 file:px-6
+                    file:rounded-xl file:border-0
+                    file:text-sm file:font-bold
+                    file:bg-gradient-to-r file:from-blue-500 file:to-blue-600
+                    file:text-white
+                    hover:file:from-blue-600 hover:file:to-blue-700
+                    cursor-pointer"
+            />
             
-            <div class="mb-4">
-                <label class="block text-sm font-semibold text-gray-700 mb-2">
-                    Select PNG files OR ZIP files containing PNGs (multiple files/folders allowed)
-                </label>
-                <input 
-                    type="file" 
-                    id="image-upload" 
-                    accept="image/png,.zip,application/zip" 
-                    multiple
-                    class="block w-full text-sm text-gray-700
-                        file:mr-4 file:py-3 file:px-6
-                        file:rounded-xl file:border-0
-                        file:text-sm file:font-bold
-                        file:bg-gradient-to-r file:from-blue-500 file:to-indigo-600
-                        file:text-white file:cursor-pointer
-                        hover:file:from-blue-600 hover:file:to-indigo-700
-                        border-2 border-gray-200 rounded-xl
-                        hover:border-blue-300 transition-all p-3 bg-gray-50"
-                >
-            </div>
+            <div id="file-status" class="text-sm text-gray-600 mb-4"></div>
             
-            <div id="file-list" class="mt-4 text-sm text-gray-600"></div>
-            
-            <div class="mt-6 flex gap-3">
-                <button 
-                    id="analyze-btn" 
-                    disabled
-                    class="flex-1 px-6 py-3 rounded-xl font-bold text-white 
-                        bg-gradient-to-r from-purple-500 to-pink-600 
-                        hover:from-purple-600 hover:to-pink-700 
-                        disabled:from-gray-300 disabled:to-gray-400 
-                        disabled:cursor-not-allowed transition-all transform 
-                        hover:scale-105 disabled:hover:scale-100 shadow-lg"
-                >
-                    🚀 Analyze & Generate Visualizations
-                </button>
-                
-                <button 
-                    id="cancel-btn" 
-                    class="hidden flex-1 px-6 py-3 rounded-xl font-bold text-white 
-                        bg-gradient-to-r from-red-500 to-red-600 
-                        hover:from-red-600 hover:to-red-700 
-                        disabled:from-gray-400 disabled:to-gray-500 
-                        disabled:cursor-not-allowed transition-all shadow-lg"
-                >
-                    ⛔ Cancel Processing
-                </button>
-            </div>
+            <button 
+                id="analyze-btn" 
+                class="bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold py-3 px-6 rounded-xl hover:from-green-600 hover:to-emerald-700 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled>
+                🔬 Analyze & Generate Visualizations
+            </button>
         </div>
         
-        <!-- Progress Bar with Micro-Progress Tracking -->
+        <!-- Progress -->
         <div id="progress-container" class="hidden bg-white p-6 rounded-xl shadow-lg mb-6">
-            <div class="mb-2 flex justify-between items-center">
-                <h3 class="text-lg font-bold text-gray-800">Processing Progress</h3>
-                <span id="progress-percentage" class="text-sm font-mono font-bold text-purple-600">0%</span>
+            <div class="flex justify-between text-sm text-gray-600 mb-2">
+                <span id="progress-text">Processing...</span>
+                <span id="progress-percentage">0%</span>
             </div>
-            <div class="w-full bg-gray-200 rounded-full h-4 overflow-hidden shadow-inner">
-                <div id="progress-bar" class="progress-bar-fill h-4 bg-gradient-to-r from-purple-500 to-pink-600 rounded-full transition-all shadow-lg" style="width: 0%"></div>
-            </div>
-            <p id="progress-text" class="mt-2 text-sm text-gray-600 font-semibold"></p>
-            
-            <!-- Micro-Progress for Current Batch -->
-            <div id="batch-progress" class="mt-4 hidden">
-                <div class="flex justify-between items-center mb-2">
-                    <h4 class="text-sm font-bold text-gray-700">Current Batch Progress</h4>
-                    <button 
-                        id="toggle-batch-details" 
-                        class="text-xs px-3 py-1 bg-blue-100 text-blue-700 rounded-full hover:bg-blue-200 transition-all"
-                    >
-                        Show Details
-                    </button>
-                </div>
-                <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden shadow-inner">
-                    <div id="batch-progress-bar" class="progress-bar-fill h-3 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full" style="width: 0%"></div>
-                </div>
-                <div id="batch-details" class="mt-3 space-y-2 max-h-64 overflow-y-auto hidden"></div>
+            <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                <div id="progress-bar" class="bg-gradient-to-r from-blue-500 to-green-500 h-full rounded-full transition-all duration-300" style="width: 0%"></div>
             </div>
         </div>
         
-        <!-- Data Summary -->
-        <div id="data-summary" class="hidden bg-white p-6 rounded-xl shadow-lg mb-6">
-            <h2 class="text-2xl font-bold text-gray-800 mb-4">Analysis Summary</h2>
-            <div id="summary-content" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
+        <!-- Results -->
+        <div id="visualization-container" class="hidden">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6">Composite Visualizations</h2>
+            <div id="viz-grid" class="analysis-grid"></div>
         </div>
-        
-        <!-- Visualization Results -->
-        <div id="visualization-container" class="hidden mb-6">
-            <div class="bg-white p-6 rounded-xl shadow-lg mb-4">
-                <h2 class="text-2xl font-bold text-gray-800 mb-2">Averaged Shape Visualizations</h2>
-                <p class="text-sm text-gray-600 mb-4">Click on any figure to download as PNG</p>
-            </div>
-            <div id="visualization-grid" class="analysis-grid"></div>
-        </div>
-        
-        <!-- Statistics Table -->
-        <div id="statistics-container" class="hidden bg-white p-6 rounded-xl shadow-lg mb-6">
-            <h2 class="text-2xl font-bold text-gray-800 mb-4">Statistical Summary</h2>
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gradient-to-r from-blue-50 to-indigo-50">
-                        <tr>
-                            <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Frequency</th>
-                            <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Phase</th>
-                            <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">N</th>
-                            <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Mean Radius</th>
-                            <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">SD Radius</th>
-                            <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Mean Area</th>
-                            <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">SD Area</th>
-                        </tr>
-                    </thead>
-                    <tbody id="statistics-body" class="bg-white divide-y divide-gray-200"></tbody>
-                </table>
-            </div>
-        </div>
-        
-        <!-- Footer -->
-        <footer class="text-center text-sm text-gray-500 mt-8 pb-4">
-            <p class="font-semibold">UCI Hearing & Speech Lab - Sound Object Average Shape Analyzer v2.0 (Ultra Optimized)</p>
-            <p class="mt-1">Parallel Web Worker Processing • Advanced Memory Management • Real-time Monitoring</p>
-        </footer>
     </div>
     
     <script>
@@ -262,1576 +109,675 @@
         // ============================================
         
         const CANVAS_SIZE = 1000;
-        const UNIT_RANGE = 10;
-        const SCALE_FACTOR = CANVAS_SIZE / (2 * UNIT_RANGE);
-        const BACKGROUND_CIRCLE_RADIUS_UNITS = 3;
-        const FREQUENCIES = [31, 62.5, 125, 250, 500, 1000, 2000, 4000, 8000, 12000, 16000];
+        const GRID_RANGE = 10; // -10 to +10 units
+        const CENTER_X = 500;
+        const CENTER_Y = 500;
+        const SCALE = 50; // pixels per unit
         
-        // Detect CPU cores for optimal parallelization
-        const CPU_CORES = navigator.hardwareConcurrency || 4;
-        const IMAGES_PER_WORKER = 3; // Process 3 images per worker
-        const MAX_PARALLEL_WORKERS = CPU_CORES;
+        // Conversion functions matching original drawing tool
+        const pixelsToUnits = (pixels) => pixels / SCALE;
+        const unitsToPixels = (units) => units * SCALE;
         
-        let participantData = {};
-        let processingCancelled = false;
-        let activeWorkers = new Set();
-        let workerPool = [];
+        const canvasToUnit = (canvasX, canvasY) => ({
+            x: (canvasX - CENTER_X) / SCALE,
+            y: (CENTER_Y - canvasY) / SCALE  // Inverted Y for proper orientation
+        });
         
-        // Performance tracking
-        let processingStats = {
-            startTime: 0,
-            totalImages: 0,
-            processedImages: 0,
-            workersActive: 0
-        };
-        
-        // Memory management - Canvas pool with better reuse
-        const canvasPool = [];
-        const MAX_POOL_SIZE = Math.min(20, MAX_PARALLEL_WORKERS * 2); // 2 canvases per worker
-        
-        function getCanvas() {
-            if (canvasPool.length > 0) {
-                return canvasPool.pop();
-            }
-            const canvas = document.createElement('canvas');
-            canvas.width = CANVAS_SIZE;
-            canvas.height = CANVAS_SIZE;
-            return canvas;
-        }
-        
-        function releaseCanvas(canvas) {
-            if (canvasPool.length < MAX_POOL_SIZE) {
-                // Clear canvas for reuse
-                const ctx = canvas.getContext('2d');
-                ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
-                canvasPool.push(canvas);
-            }
-        }
-        
-        // Memory-efficient ImageData reuse
-        let imageDataPool = [];
-        const MAX_IMAGEDATA_POOL = MAX_PARALLEL_WORKERS * 2;
-        
-        function getImageData(ctx) {
-            if (imageDataPool.length > 0) {
-                return imageDataPool.pop();
-            }
-            return ctx.createImageData(CANVAS_SIZE, CANVAS_SIZE);
-        }
-        
-        function releaseImageData(imageData) {
-            if (imageDataPool.length < MAX_IMAGEDATA_POOL) {
-                imageDataPool.push(imageData);
-            }
-        }
-        
-        // ============================================
-        // WEB WORKER CODE (Inline)
-        // ============================================
-        
-        const workerCode = `
-            const CANVAS_SIZE = 1000;
-            const UNIT_RANGE = 10;
-            const SCALE_FACTOR = CANVAS_SIZE / (2 * UNIT_RANGE);
-            
-            function canvasToUnit(canvasX, canvasY) {
-                const centerX = CANVAS_SIZE / 2;
-                const centerY = CANVAS_SIZE / 2;
-                return {
-                    x: (canvasX - centerX) / SCALE_FACTOR,
-                    y: (centerY - canvasY) / SCALE_FACTOR
-                };
-            }
-            
-            function unitToCanvas(unitX, unitY, canvasSize = CANVAS_SIZE) {
-                const center = canvasSize / 2;
-                const scale = canvasSize / (2 * UNIT_RANGE);
-                return {
-                    x: center + (unitX * scale),
-                    y: center - (unitY * scale)
-                };
-            }
-            
-            function calculateGeometricCentroid(pixels) {
-                if (pixels.length === 0) return { x: 0, y: 0 };
-                
-                const points = pixels.map(p => canvasToUnit(p.x, p.y));
-                
-                const totalPathLength = (points.length - 1) * 1.0;
-                const numSamples = Math.max(100, Math.floor(totalPathLength * 10));
-                const sampledPoints = [];
-                
-                for (let i = 0; i < numSamples; i++) {
-                    const t = i / numSamples;
-                    const exactIndex = t * (points.length - 1);
-                    const lowerIndex = Math.floor(exactIndex);
-                    const upperIndex = Math.min(lowerIndex + 1, points.length - 1);
-                    const localT = exactIndex - lowerIndex;
-                    
-                    const p1 = points[lowerIndex];
-                    const p2 = points[upperIndex];
-                    
-                    sampledPoints.push({
-                        x: p1.x + (p2.x - p1.x) * localT,
-                        y: p1.y + (p2.y - p1.y) * localT
-                    });
-                }
-                
-                let sumX = 0, sumY = 0;
-                for (const p of sampledPoints) {
-                    sumX += p.x;
-                    sumY += p.y;
-                }
-                
-                return {
-                    x: sumX / sampledPoints.length,
-                    y: sumY / sampledPoints.length
-                };
-            }
-            
-            function isShapeClosed(points, threshold = 0.5) {
-                if (points.length < 3) return false;
-                const first = points[0];
-                const last = points[points.length - 1];
-                const dx = last.x - first.x;
-                const dy = last.y - first.y;
-                const distance = Math.sqrt(dx * dx + dy * dy);
-                return distance < threshold;
-            }
-            
-            function distanceToSegment(px, py, x1, y1, x2, y2) {
-                const A = px - x1;
-                const B = py - y1;
-                const C = x2 - x1;
-                const D = y2 - y1;
-                
-                const dot = A * C + B * D;
-                const lenSq = C * C + D * D;
-                let param = -1;
-                
-                if (lenSq !== 0) param = dot / lenSq;
-                
-                let xx, yy;
-                
-                if (param < 0) {
-                    xx = x1;
-                    yy = y1;
-                } else if (param > 1) {
-                    xx = x2;
-                    yy = y2;
-                } else {
-                    xx = x1 + param * C;
-                    yy = y1 + param * D;
-                }
-                
-                const dx = px - xx;
-                const dy = py - yy;
-                return Math.sqrt(dx * dx + dy * dy);
-            }
-            
-            function isPointInPolygon(x, y, polygon) {
-                let inside = false;
-                for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-                    const xi = polygon[i].x, yi = polygon[i].y;
-                    const xj = polygon[j].x, yj = polygon[j].y;
-                    
-                    const intersect = ((yi > y) !== (yj > y)) &&
-                        (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
-                    if (intersect) inside = !inside;
-                }
-                return inside;
-            }
-            
-            function calculatePixelBasedArea(unitPoints, brushSize = 5, resolution = null) {
-                if (unitPoints.length === 0) return 0;
-                
-                const isClosed = isShapeClosed(unitPoints);
-                const fullBrushRadius = brushSize / SCALE_FACTOR / 2;
-                const brushRadius = fullBrushRadius;
-                
-                if (resolution === null) {
-                    if (brushRadius < 0.05) {
-                        resolution = 0.05;
-                    } else if (brushRadius < 0.1) {
-                        resolution = 0.075;
-                    } else {
-                        resolution = 0.1;
-                    }
-                }
-                
-                let minX = unitPoints[0].x, maxX = unitPoints[0].x;
-                let minY = unitPoints[0].y, maxY = unitPoints[0].y;
-                
-                for (const p of unitPoints) {
-                    minX = Math.min(minX, p.x);
-                    maxX = Math.max(maxX, p.x);
-                    minY = Math.min(minY, p.y);
-                    maxY = Math.max(maxY, p.y);
-                }
-                
-                minX -= brushRadius;
-                maxX += brushRadius;
-                minY -= brushRadius;
-                maxY += brushRadius;
-                
-                let paintedCells = 0;
-                
-                for (let x = minX; x <= maxX; x += resolution) {
-                    for (let y = minY; y <= maxY; y += resolution) {
-                        let isPainted = false;
-                        
-                        if (isClosed) {
-                            if (isPointInPolygon(x, y, unitPoints)) {
-                                isPainted = true;
-                            } else {
-                                for (let i = 0; i < unitPoints.length - 1; i++) {
-                                    const p1 = unitPoints[i];
-                                    const p2 = unitPoints[i + 1];
-                                    const dist = distanceToSegment(x, y, p1.x, p1.y, p2.x, p2.y);
-                                    if (dist <= brushRadius) {
-                                        isPainted = true;
-                                        break;
-                                    }
-                                }
-                            }
-                        } else {
-                            for (let i = 0; i < unitPoints.length - 1; i++) {
-                                const p1 = unitPoints[i];
-                                const p2 = unitPoints[i + 1];
-                                const dist = distanceToSegment(x, y, p1.x, p1.y, p2.x, p2.y);
-                                if (dist <= brushRadius) {
-                                    isPainted = true;
-                                    break;
-                                }
-                            }
-                        }
-                        
-                        if (isPainted) {
-                            paintedCells++;
-                        }
-                    }
-                }
-                
-                const cellArea = resolution * resolution;
-                const totalArea = paintedCells * cellArea;
-                
-                let adjustedArea = totalArea;
-                
-                if (isClosed) {
-                    let perimeter = 0;
-                    for (let i = 0; i < unitPoints.length; i++) {
-                        const p1 = unitPoints[i];
-                        const p2 = unitPoints[(i + 1) % unitPoints.length];
-                        const dx = p2.x - p1.x;
-                        const dy = p2.y - p1.y;
-                        perimeter += Math.sqrt(dx * dx + dy * dy);
-                    }
-                    
-                    const outlineArea = perimeter * (brushRadius * 2) * 0.50;
-                    adjustedArea = Math.max(0, totalArea - outlineArea);
-                }
-                
-                return adjustedArea;
-            }
-            
-            function extractContours(imageData) {
-                const width = imageData.width;
-                const height = imageData.height;
-                const data = imageData.data;
-                
-                // Quick bounds detection
-                let minX = width, maxX = 0, minY = height, maxY = 0;
-                let hasContent = false;
-                
-                for (let y = 0; y < height; y += 10) {
-                    for (let x = 0; x < width; x += 10) {
-                        const idx = (y * width + x) * 4;
-                        const r = data[idx];
-                        const g = data[idx + 1];
-                        const b = data[idx + 2];
-                        const a = data[idx + 3];
-                        
-                        if (a > 128 && !(r > 240 && g > 240 && b > 240)) {
-                            minX = Math.min(minX, x);
-                            maxX = Math.max(maxX, x);
-                            minY = Math.min(minY, y);
-                            maxY = Math.max(maxY, y);
-                            hasContent = true;
-                        }
-                    }
-                }
-                
-                if (!hasContent) return null;
-                
-                minX = Math.max(0, minX - 20);
-                maxX = Math.min(width, maxX + 20);
-                minY = Math.max(0, minY - 20);
-                maxY = Math.min(height, maxY + 20);
-                
-                const redPixels = [];
-                const bluePixels = [];
-                const whiteThreshold = 240;
-                const grayMin = 140;
-                const grayMax = 200;
-                const grayColorDiff = 20;
-                const alphaThreshold = 128;
-                
-                for (let y = minY; y < maxY; y++) {
-                    for (let x = minX; x < maxX; x++) {
-                        const idx = (y * width + x) * 4;
-                        const r = data[idx];
-                        const g = data[idx + 1];
-                        const b = data[idx + 2];
-                        const a = data[idx + 3];
-                        
-                        if (a <= alphaThreshold) continue;
-                        if (r > whiteThreshold && g > whiteThreshold && b > whiteThreshold) continue;
-                        
-                        if (r >= grayMin && r <= grayMax) {
-                            const rgDiff = Math.abs(r - g);
-                            if (rgDiff < grayColorDiff) {
-                                const gbDiff = Math.abs(g - b);
-                                if (gbDiff < grayColorDiff) continue;
-                            }
-                        }
-                        
-                        // Separate red and blue pixels
-                        if (r > b) {
-                            redPixels.push({ x, y, r, g, b });
-                        } else {
-                            bluePixels.push({ x, y, r, g, b });
-                        }
-                    }
-                }
-                
-                // Process each color separately
-                const results = [];
-                
-                if (redPixels.length > 0) {
-                    const centroid = calculateGeometricCentroid(redPixels);
-                    const unitPoints = redPixels.map(p => canvasToUnit(p.x, p.y));
-                    const estimatedBrushSize = 5;
-                    const area = calculatePixelBasedArea(unitPoints, estimatedBrushSize);
-                    
-                    const numBins = 180;
-                    const bins = Array(numBins).fill(null).map(() => ({ maxRadius: 0, point: null }));
-                    
-                    unitPoints.forEach(point => {
-                        const dx = point.x - centroid.x;
-                        const dy = point.y - centroid.y;
-                        const angle = Math.atan2(dy, dx);
-                        const radius = Math.sqrt(dx * dx + dy * dy);
-                        
-                        let binIndex = Math.floor(((angle + Math.PI) / (2 * Math.PI)) * numBins);
-                        binIndex = (binIndex + numBins) % numBins;
-                        
-                        if (radius > bins[binIndex].maxRadius) {
-                            bins[binIndex].maxRadius = radius;
-                            // Store point RELATIVE to centroid
-                            bins[binIndex].point = { x: dx, y: dy };
-                        }
-                    });
-                    
-                    const contour = bins
-                        .filter(bin => bin.point !== null)
-                        .map(bin => bin.point);
-                    
-                    const radii = bins.filter(bin => bin.maxRadius > 0).map(bin => bin.maxRadius);
-                    const avgRadius = radii.reduce((sum, r) => sum + r, 0) / radii.length;
-                    
-                    results.push({
-                        phase: 'red',
-                        centroid,
-                        contour,
-                        avgRadius,
-                        area,
-                        allPoints: unitPoints
-                    });
-                }
-                
-                if (bluePixels.length > 0) {
-                    const centroid = calculateGeometricCentroid(bluePixels);
-                    const unitPoints = bluePixels.map(p => canvasToUnit(p.x, p.y));
-                    const estimatedBrushSize = 5;
-                    const area = calculatePixelBasedArea(unitPoints, estimatedBrushSize);
-                    
-                    const numBins = 180;
-                    const bins = Array(numBins).fill(null).map(() => ({ maxRadius: 0, point: null }));
-                    
-                    unitPoints.forEach(point => {
-                        const dx = point.x - centroid.x;
-                        const dy = point.y - centroid.y;
-                        const angle = Math.atan2(dy, dx);
-                        const radius = Math.sqrt(dx * dx + dy * dy);
-                        
-                        let binIndex = Math.floor(((angle + Math.PI) / (2 * Math.PI)) * numBins);
-                        binIndex = (binIndex + numBins) % numBins;
-                        
-                        if (radius > bins[binIndex].maxRadius) {
-                            bins[binIndex].maxRadius = radius;
-                            // Store point RELATIVE to centroid
-                            bins[binIndex].point = { x: dx, y: dy };
-                        }
-                    });
-                    
-                    const contour = bins
-                        .filter(bin => bin.point !== null)
-                        .map(bin => bin.point);
-                    
-                    const radii = bins.filter(bin => bin.maxRadius > 0).map(bin => bin.maxRadius);
-                    const avgRadius = radii.reduce((sum, r) => sum + r, 0) / radii.length;
-                    
-                    results.push({
-                        phase: 'blue',
-                        centroid,
-                        contour,
-                        avgRadius,
-                        area,
-                        allPoints: unitPoints
-                    });
-                }
-                
-                return results.length > 0 ? results : null;
-            }
-            
-            // Worker message handler
-            self.onmessage = function(e) {
-                const { imageData, filename } = e.data;
-                
-                try {
-                    // Parse filename
-                    const parts = filename.replace('.png', '').split('_');
-                    if (parts.length < 2) {
-                        self.postMessage({ error: 'Invalid filename format', filename });
-                        return;
-                    }
-                    
-                    const participant = parts[0];
-                    const freqMatch = parts[1].match(/(\\d+\\.?\\d*)Hz/);
-                    
-                    if (!freqMatch) {
-                        self.postMessage({ error: 'No frequency found', filename });
-                        return;
-                    }
-                    
-                    const frequency = parseFloat(freqMatch[1]);
-                    
-                    // Process image - now returns array of shapes (red and blue)
-                    const shapes = extractContours(imageData);
-                    
-                    if (!shapes) {
-                        self.postMessage({ error: 'No contours found', filename });
-                        return;
-                    }
-                    
-                    // Send result back - now includes multiple shapes
-                    self.postMessage({
-                        success: true,
-                        results: shapes.map(shape => ({
-                            participant,
-                            frequency,
-                            filename,
-                            ...shape
-                        }))
-                    });
-                } catch (err) {
-                    self.postMessage({ error: err.message, filename });
-                }
-            };
-        `;
-        
-        // Create blob URL for worker
-        const workerBlob = new Blob([workerCode], { type: 'application/javascript' });
-        const workerBlobUrl = URL.createObjectURL(workerBlob);
-        
-        // ============================================
-        // WORKER POOL MANAGEMENT
-        // ============================================
-        
-        function createWorker() {
-            const worker = new Worker(workerBlobUrl);
-            activeWorkers.add(worker);
-            updateWorkersMetric();
-            return worker;
-        }
-        
-        function terminateWorker(worker) {
-            worker.terminate();
-            activeWorkers.delete(worker);
-            updateWorkersMetric();
-        }
-        
-        function updateWorkersMetric() {
-            const metric = document.getElementById('workers-metric');
-            if (metric) {
-                metric.textContent = activeWorkers.size;
-            }
-        }
-        
-        // ============================================
-        // PERFORMANCE MONITORING
-        // ============================================
-        
-        function updatePerformanceMetrics() {
-            const elapsed = (Date.now() - processingStats.startTime) / 1000;
-            const processed = processingStats.processedImages;
-            const total = processingStats.totalImages;
-            const remaining = total - processed;
-            
-            // Speed (images per second)
-            const speed = processed / elapsed;
-            const speedMetric = document.getElementById('speed-metric');
-            if (speedMetric && !isNaN(speed) && isFinite(speed)) {
-                speedMetric.textContent = `${speed.toFixed(1)} img/s`;
-            }
-            
-            // ETA (estimated time remaining)
-            const eta = remaining / speed;
-            const etaMetric = document.getElementById('eta-metric');
-            if (etaMetric && !isNaN(eta) && isFinite(eta)) {
-                if (eta < 60) {
-                    etaMetric.textContent = `${Math.ceil(eta)}s`;
-                } else {
-                    const minutes = Math.floor(eta / 60);
-                    const seconds = Math.ceil(eta % 60);
-                    etaMetric.textContent = `${minutes}m ${seconds}s`;
-                }
-            }
-            
-            // Memory usage (if available)
-            if (performance.memory) {
-                const memoryMetric = document.getElementById('memory-metric');
-                const usedMB = (performance.memory.usedJSHeapSize / 1024 / 1024).toFixed(1);
-                if (memoryMetric) {
-                    memoryMetric.textContent = `${usedMB} MB`;
-                }
-            }
-        }
-        
-        // ============================================
-        // COORDINATE SYSTEM FUNCTIONS (EXACT from original)
-        // ============================================
-        
-        function canvasToUnit(canvasX, canvasY) {
-            const centerX = CANVAS_SIZE / 2;
-            const centerY = CANVAS_SIZE / 2;
-            return {
-                x: (canvasX - centerX) / SCALE_FACTOR,
-                y: (centerY - canvasY) / SCALE_FACTOR
-            };
-        }
-        
-        function unitToCanvas(unitX, unitY, canvasSize = CANVAS_SIZE) {
-            const center = canvasSize / 2;
-            const scale = canvasSize / (2 * UNIT_RANGE);
-            return {
-                x: center + (unitX * scale),
-                y: center - (unitY * scale)
-            };
-        }
-        
-        // ============================================
-        // UI UPDATE FUNCTIONS
-        // ============================================
-        
-        function updateProgress(percentage, message) {
-            const container = document.getElementById('progress-container');
-            const bar = document.getElementById('progress-bar');
-            const text = document.getElementById('progress-text');
-            const percentageText = document.getElementById('progress-percentage');
-            
-            container.classList.remove('hidden');
-            bar.style.width = `${percentage}%`;
-            text.textContent = message;
-            percentageText.textContent = `${Math.round(percentage)}%`;
-            
-            // Update performance metrics if processing
-            if (processingStats.startTime > 0 && processingStats.processedImages > 0) {
-                updatePerformanceMetrics();
-            }
-        }
-        
-        function showError(message) {
-            const container = document.getElementById('progress-container');
-            const bar = document.getElementById('progress-bar');
-            const text = document.getElementById('progress-text');
-            
-            container.classList.remove('hidden');
-            bar.style.width = '100%';
-            bar.className = 'h-4 bg-gradient-to-r from-red-500 to-red-600 rounded-full transition-all';
-            text.textContent = `❌ Error: ${message}`;
-        }
-        
-        let currentBatchFiles = [];
-        let batchItemStates = [];
-        
-        function initBatch(filenames) {
-            currentBatchFiles = filenames;
-            batchItemStates = filenames.map(name => ({ name, status: 'pending', progress: 0 }));
-            
-            const batchProgress = document.getElementById('batch-progress');
-            batchProgress.classList.remove('hidden');
-            
-            updateBatchDisplay();
-        }
-        
-        function updateBatchItem(index, status, progress) {
-            if (index < batchItemStates.length) {
-                batchItemStates[index].status = status;
-                batchItemStates[index].progress = progress;
-                updateBatchDisplay();
-            }
-        }
-        
-        function updateBatchDisplay() {
-            const batchBar = document.getElementById('batch-progress-bar');
-            const totalProgress = batchItemStates.reduce((sum, item) => sum + item.progress, 0);
-            const avgProgress = totalProgress / batchItemStates.length;
-            batchBar.style.width = `${avgProgress}%`;
-            
-            const details = document.getElementById('batch-details');
-            if (!details.classList.contains('hidden')) {
-                details.innerHTML = batchItemStates.map((item, i) => {
-                    let statusIcon = '⏳';
-                    let statusColor = 'text-gray-600';
-                    let bgColor = 'bg-gray-50';
-                    
-                    if (item.status === 'processing') {
-                        statusIcon = '⚙️';
-                        statusColor = 'text-blue-600';
-                        bgColor = 'bg-blue-50';
-                    } else if (item.status === 'completed') {
-                        statusIcon = '✅';
-                        statusColor = 'text-green-600';
-                        bgColor = 'bg-green-50';
-                    } else if (item.status === 'error') {
-                        statusIcon = '❌';
-                        statusColor = 'text-red-600';
-                        bgColor = 'bg-red-50';
-                    }
-                    
-                    return `
-                        <div class="batch-item p-2 rounded ${bgColor} flex items-center justify-between">
-                            <div class="flex items-center gap-2 flex-1 min-w-0">
-                                <span class="text-lg">${statusIcon}</span>
-                                <span class="text-xs ${statusColor} font-semibold truncate">${item.name}</span>
-                            </div>
-                            <div class="text-xs font-mono font-bold ${statusColor} ml-2">${item.progress}%</div>
-                        </div>
-                    `;
-                }).join('');
-            }
-        }
-        
-        function clearBatch() {
-            currentBatchFiles = [];
-            batchItemStates = [];
-            
-            const batchProgress = document.getElementById('batch-progress');
-            batchProgress.classList.add('hidden');
-            
-            const details = document.getElementById('batch-details');
-            details.innerHTML = '';
-        }
-        
-        // Toggle batch details
-        document.getElementById('toggle-batch-details').addEventListener('click', function() {
-            const details = document.getElementById('batch-details');
-            const btn = this;
-            
-            if (details.classList.contains('hidden')) {
-                details.classList.remove('hidden');
-                btn.textContent = 'Hide Details';
-            } else {
-                details.classList.add('hidden');
-                btn.textContent = 'Show Details';
-            }
+        const unitToCanvas = (unitX, unitY) => ({
+            x: CENTER_X + unitX * SCALE,
+            y: CENTER_Y - unitY * SCALE  // Inverted Y
         });
         
         // ============================================
-        // FILE HANDLING WITH ZIP SUPPORT
+        // INITIALIZATION
         // ============================================
         
-        async function extractPNGsFromZip(zipBlob, parentPath = '') {
-            if (typeof JSZip === 'undefined') {
-                throw new Error('JSZip library not loaded');
-            }
+        document.addEventListener('DOMContentLoaded', () => {
+            const uploadInput = document.getElementById('image-upload');
+            const analyzeBtn = document.getElementById('analyze-btn');
             
-            const zip = await JSZip.loadAsync(zipBlob);
-            const pngFiles = [];
+            uploadInput.addEventListener('change', handleFileUpload);
+            analyzeBtn.addEventListener('click', startAnalysis);
+        });
+        
+        function handleFileUpload(event) {
+            const files = Array.from(event.target.files);
+            if (files.length === 0) return;
             
-            for (const [filename, file] of Object.entries(zip.files)) {
-                if (file.dir) continue;
-                
-                const fullPath = parentPath ? `${parentPath}/${filename}` : filename;
-                const lowerName = filename.toLowerCase();
-                
-                if (lowerName.endsWith('.png')) {
-                    const blob = await file.async('blob');
-                    pngFiles.push({
-                        name: filename.split('/').pop(),
-                        blob: blob,
-                        fullPath: fullPath
-                    });
-                }
-                else if (lowerName.endsWith('.zip')) {
-                    const nestedZipBlob = await file.async('blob');
-                    const nestedPNGs = await extractPNGsFromZip(nestedZipBlob, fullPath);
-                    pngFiles.push(...nestedPNGs);
-                }
-            }
+            const statusDiv = document.getElementById('file-status');
+            const analyzeBtn = document.getElementById('analyze-btn');
             
-            return pngFiles;
+            const zipCount = files.filter(f => f.name.toLowerCase().endsWith('.zip')).length;
+            const pngCount = files.filter(f => f.name.toLowerCase().endsWith('.png')).length;
+            
+            statusDiv.innerHTML = `✅ ${files.length} file(s) uploaded (${zipCount} ZIP, ${pngCount} PNG)`;
+            
+            analyzeBtn.disabled = false;
+            analyzeBtn.classList.remove('disabled:opacity-50', 'disabled:cursor-not-allowed');
         }
         
-        async function processAllFiles(files) {
-            const allPNGs = [];
+        async function startAnalysis() {
+            const uploadInput = document.getElementById('image-upload');
+            const files = Array.from(uploadInput.files);
             
-            for (const file of files) {
-                const lowerName = file.name.toLowerCase();
-                
-                if (lowerName.endsWith('.png')) {
-                    allPNGs.push({
-                        name: file.name,
-                        blob: file,
-                        fullPath: file.name
-                    });
-                }
-                else if (lowerName.endsWith('.zip')) {
-                    try {
-                        const extractedPNGs = await extractPNGsFromZip(file, file.name);
-                        allPNGs.push(...extractedPNGs);
-                    } catch (err) {
-                        console.error(`Error extracting ${file.name}:`, err);
+            if (files.length === 0) {
+                alert('Please upload files first');
+                return;
+            }
+            
+            try {
+                await analyzeData(files);
+            } catch (error) {
+                console.error('Analysis error:', error);
+                alert(`Analysis failed: ${error.message}`);
+            }
+        }
+        
+        // ============================================
+        // CRITICAL: EXTRACT ACTUAL CONTOURS FROM IMAGES
+        // ============================================
+        
+        async function extractShapesFromImage(imageData, filename) {
+            const width = imageData.width;
+            const height = imageData.height;
+            const data = imageData.data;
+            
+            // Find all colored pixels
+            const redPixels = [];
+            const bluePixels = [];
+            
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const idx = (y * width + x) * 4;
+                    const r = data[idx];
+                    const g = data[idx + 1];
+                    const b = data[idx + 2];
+                    const a = data[idx + 3];
+                    
+                    // Skip transparent or white pixels
+                    if (a < 128 || (r > 240 && g > 240 && b > 240)) continue;
+                    
+                    // Skip gray pixels (grid lines)
+                    if (Math.abs(r - g) < 20 && Math.abs(g - b) < 20 && r > 140 && r < 200) continue;
+                    
+                    // Separate by color - blue overlaps red
+                    if (b > r && b > g) {
+                        bluePixels.push({ x, y });
+                    } else if (r > b && r > g) {
+                        redPixels.push({ x, y });
                     }
                 }
             }
             
-            return allPNGs;
+            const shapes = [];
+            
+            // Process red shape - extract EDGE pixels only
+            if (redPixels.length > 0) {
+                const redEdge = extractEdgePixels(redPixels, width, height, data);
+                const redContour = orderContourPoints(redEdge);
+                const redCentroid = calculateCentroid(redContour);
+                
+                shapes.push({
+                    phase: 'red',
+                    contour: redContour, // These are canvas pixel coordinates
+                    centroid: redCentroid,
+                    area: calculateContourArea(redContour)
+                });
+            }
+            
+            // Process blue shape - extract EDGE pixels only
+            if (bluePixels.length > 0) {
+                const blueEdge = extractEdgePixels(bluePixels, width, height, data);
+                const blueContour = orderContourPoints(blueEdge);
+                const blueCentroid = calculateCentroid(blueContour);
+                
+                shapes.push({
+                    phase: 'blue',
+                    contour: blueContour, // These are canvas pixel coordinates
+                    centroid: blueCentroid,
+                    area: calculateContourArea(blueContour)
+                });
+            }
+            
+            return shapes;
+        }
+        
+        function extractEdgePixels(pixels, width, height, imageData) {
+            const pixelSet = new Set(pixels.map(p => `${p.x},${p.y}`));
+            const edgePixels = [];
+            
+            pixels.forEach(pixel => {
+                // Check if this pixel is on the edge (has at least one non-colored neighbor)
+                let isEdge = false;
+                
+                for (let dy = -1; dy <= 1; dy++) {
+                    for (let dx = -1; dx <= 1; dx++) {
+                        if (dx === 0 && dy === 0) continue;
+                        
+                        const nx = pixel.x + dx;
+                        const ny = pixel.y + dy;
+                        
+                        // Check bounds
+                        if (nx < 0 || nx >= width || ny < 0 || ny >= height) {
+                            isEdge = true;
+                            break;
+                        }
+                        
+                        // Check if neighbor is not in our pixel set
+                        if (!pixelSet.has(`${nx},${ny}`)) {
+                            isEdge = true;
+                            break;
+                        }
+                    }
+                    if (isEdge) break;
+                }
+                
+                if (isEdge) {
+                    edgePixels.push(pixel);
+                }
+            });
+            
+            return edgePixels;
+        }
+        
+        function orderContourPoints(edgePixels) {
+            if (edgePixels.length === 0) return [];
+            
+            // Start with an arbitrary point
+            const ordered = [edgePixels[0]];
+            const remaining = new Set(edgePixels.slice(1));
+            
+            while (remaining.size > 0 && ordered.length < edgePixels.length) {
+                const last = ordered[ordered.length - 1];
+                let nearest = null;
+                let minDist = Infinity;
+                
+                // Find nearest unvisited point
+                remaining.forEach(point => {
+                    const dist = Math.sqrt(
+                        Math.pow(point.x - last.x, 2) + 
+                        Math.pow(point.y - last.y, 2)
+                    );
+                    
+                    if (dist < minDist) {
+                        minDist = dist;
+                        nearest = point;
+                    }
+                });
+                
+                if (nearest && minDist < 50) { // Only connect if reasonably close
+                    ordered.push(nearest);
+                    remaining.delete(nearest);
+                } else {
+                    break; // Gap too large, stop
+                }
+            }
+            
+            return ordered;
+        }
+        
+        function calculateCentroid(contour) {
+            if (contour.length === 0) return { x: CENTER_X, y: CENTER_Y };
+            
+            const sumX = contour.reduce((sum, p) => sum + p.x, 0);
+            const sumY = contour.reduce((sum, p) => sum + p.y, 0);
+            
+            return {
+                x: sumX / contour.length,
+                y: sumY / contour.length
+            };
+        }
+        
+        function calculateContourArea(contour) {
+            if (contour.length < 3) return 0;
+            
+            // Shoelace formula
+            let area = 0;
+            for (let i = 0; i < contour.length; i++) {
+                const j = (i + 1) % contour.length;
+                area += contour[i].x * contour[j].y;
+                area -= contour[j].x * contour[i].y;
+            }
+            
+            return Math.abs(area / 2) / (SCALE * SCALE); // Convert to square units
         }
         
         // ============================================
-        // PARALLEL IMAGE PROCESSING WITH WEB WORKERS
+        // AVERAGING - Creates smooth average contour
         // ============================================
         
-        async function processImageWithWorker(file) {
-            return new Promise((resolve, reject) => {
-                if (processingCancelled) {
-                    reject(new Error('Processing cancelled'));
-                    return;
+        function calculateAverageShape(shapes) {
+            if (shapes.length === 0) return null;
+            
+            // Calculate average centroid
+            const avgCentroid = {
+                x: shapes.reduce((sum, s) => sum + s.centroid.x, 0) / shapes.length,
+                y: shapes.reduce((sum, s) => sum + s.centroid.y, 0) / shapes.length
+            };
+            
+            // Convert all contours to polar coordinates relative to average centroid
+            const polarContours = shapes.map(shape => {
+                return shape.contour.map(point => {
+                    const dx = point.x - avgCentroid.x;
+                    const dy = point.y - avgCentroid.y;
+                    const angle = Math.atan2(dy, dx);
+                    const radius = Math.sqrt(dx * dx + dy * dy);
+                    return { angle, radius };
+                });
+            });
+            
+            // Create averaged contour by binning angles
+            const numBins = 360;
+            const bins = new Array(numBins).fill(null).map(() => []);
+            
+            polarContours.forEach(contour => {
+                contour.forEach(point => {
+                    let binIndex = Math.floor(((point.angle + Math.PI) / (2 * Math.PI)) * numBins);
+                    binIndex = (binIndex + numBins) % numBins;
+                    bins[binIndex].push(point.radius);
+                });
+            });
+            
+            // Create smooth averaged contour
+            const avgContour = [];
+            for (let i = 0; i < numBins; i++) {
+                if (bins[i].length > 0) {
+                    const avgRadius = bins[i].reduce((sum, r) => sum + r, 0) / bins[i].length;
+                    const angle = (i / numBins) * 2 * Math.PI - Math.PI;
+                    
+                    avgContour.push({
+                        x: avgCentroid.x + avgRadius * Math.cos(angle),
+                        y: avgCentroid.y + avgRadius * Math.sin(angle)
+                    });
+                }
+            }
+            
+            // Fill gaps with interpolation
+            const finalContour = [];
+            for (let i = 0; i < avgContour.length; i++) {
+                finalContour.push(avgContour[i]);
+                
+                // Check for gap to next point
+                const next = avgContour[(i + 1) % avgContour.length];
+                const dist = Math.sqrt(
+                    Math.pow(next.x - avgContour[i].x, 2) + 
+                    Math.pow(next.y - avgContour[i].y, 2)
+                );
+                
+                if (dist > 10) { // If gap, interpolate
+                    const steps = Math.ceil(dist / 5);
+                    for (let j = 1; j < steps; j++) {
+                        const t = j / steps;
+                        finalContour.push({
+                            x: avgContour[i].x + (next.x - avgContour[i].x) * t,
+                            y: avgContour[i].y + (next.y - avgContour[i].y) * t
+                        });
+                    }
+                }
+            }
+            
+            // Calculate mean radius
+            const radii = finalContour.map(p => {
+                const dx = p.x - avgCentroid.x;
+                const dy = p.y - avgCentroid.y;
+                return Math.sqrt(dx * dx + dy * dy) / SCALE; // Convert to units
+            });
+            
+            const meanRadius = radii.reduce((sum, r) => sum + r, 0) / radii.length;
+            
+            return {
+                contour: finalContour,
+                centroid: avgCentroid,
+                meanRadius: meanRadius,
+                n: shapes.length
+            };
+        }
+        
+        // ============================================
+        // DRAWING FUNCTIONS - The Key Fix!
+        // ============================================
+        
+        function drawCompositeVisualization(canvas, frequency, redShapes, blueShapes, redAvg, blueAvg) {
+            const ctx = canvas.getContext('2d');
+            
+            // Clear with white background
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw grid
+            drawGrid(ctx);
+            
+            // CRITICAL: Draw individual shapes as CLOSED CONTOURS, not radial lines
+            
+            // Draw red individual shapes in gray
+            ctx.strokeStyle = '#999999';
+            ctx.lineWidth = 1;
+            ctx.globalAlpha = 0.3;
+            
+            redShapes.forEach(shape => {
+                if (shape.contour && shape.contour.length > 0) {
+                    ctx.beginPath();
+                    ctx.moveTo(shape.contour[0].x, shape.contour[0].y);
+                    
+                    for (let i = 1; i < shape.contour.length; i++) {
+                        ctx.lineTo(shape.contour[i].x, shape.contour[i].y);
+                    }
+                    
+                    ctx.closePath();
+                    ctx.stroke();
+                }
+            });
+            
+            // Draw blue individual shapes in gray
+            blueShapes.forEach(shape => {
+                if (shape.contour && shape.contour.length > 0) {
+                    ctx.beginPath();
+                    ctx.moveTo(shape.contour[0].x, shape.contour[0].y);
+                    
+                    for (let i = 1; i < shape.contour.length; i++) {
+                        ctx.lineTo(shape.contour[i].x, shape.contour[i].y);
+                    }
+                    
+                    ctx.closePath();
+                    ctx.stroke();
+                }
+            });
+            
+            ctx.globalAlpha = 1.0;
+            
+            // Draw averaged red shape
+            if (redAvg && redAvg.contour && redAvg.contour.length > 0) {
+                ctx.strokeStyle = '#FF0000';
+                ctx.lineWidth = 3;
+                ctx.setLineDash([]);
+                
+                ctx.beginPath();
+                ctx.moveTo(redAvg.contour[0].x, redAvg.contour[0].y);
+                
+                for (let i = 1; i < redAvg.contour.length; i++) {
+                    ctx.lineTo(redAvg.contour[i].x, redAvg.contour[i].y);
                 }
                 
+                ctx.closePath();
+                ctx.stroke();
+            }
+            
+            // Draw averaged blue shape (dashed)
+            if (blueAvg && blueAvg.contour && blueAvg.contour.length > 0) {
+                ctx.strokeStyle = '#0000FF';
+                ctx.lineWidth = 3;
+                ctx.setLineDash([10, 5]);
+                
+                ctx.beginPath();
+                ctx.moveTo(blueAvg.contour[0].x, blueAvg.contour[0].y);
+                
+                for (let i = 1; i < blueAvg.contour.length; i++) {
+                    ctx.lineTo(blueAvg.contour[i].x, blueAvg.contour[i].y);
+                }
+                
+                ctx.closePath();
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+            
+            // Add frequency label
+            ctx.fillStyle = 'black';
+            ctx.font = 'bold 32px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(frequency, canvas.width / 2, 40);
+            
+            // Add statistics
+            const nTotal = redShapes.length + blueShapes.length;
+            const meanRadius = redAvg ? redAvg.meanRadius.toFixed(2) : 
+                              (blueAvg ? blueAvg.meanRadius.toFixed(2) : '0.00');
+            
+            ctx.font = '16px Arial';
+            ctx.fillText(`N=${nTotal}, mean r=${meanRadius} (centroid avg)`, canvas.width / 2, canvas.height - 20);
+        }
+        
+        function drawGrid(ctx) {
+            const size = CANVAS_SIZE;
+            const gridSize = size / (2 * GRID_RANGE);
+            
+            ctx.strokeStyle = '#e0e0e0';
+            ctx.lineWidth = 1;
+            
+            // Grid lines
+            for (let i = 0; i <= 2 * GRID_RANGE; i++) {
+                const pos = i * gridSize;
+                
+                ctx.beginPath();
+                ctx.moveTo(pos, 0);
+                ctx.lineTo(pos, size);
+                ctx.stroke();
+                
+                ctx.beginPath();
+                ctx.moveTo(0, pos);
+                ctx.lineTo(size, pos);
+                ctx.stroke();
+            }
+            
+            // Center axes
+            ctx.strokeStyle = '#999999';
+            ctx.lineWidth = 2;
+            
+            ctx.beginPath();
+            ctx.moveTo(size / 2, 0);
+            ctx.lineTo(size / 2, size);
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.moveTo(0, size / 2);
+            ctx.lineTo(size, size / 2);
+            ctx.stroke();
+        }
+        
+        // ============================================
+        // FILE PROCESSING
+        // ============================================
+        
+        async function loadImagesFromZip(file) {
+            const zip = await JSZip.loadAsync(file);
+            const images = [];
+            
+            for (const [path, zipEntry] of Object.entries(zip.files)) {
+                if (zipEntry.dir) continue;
+                
+                if (path.toLowerCase().endsWith('.png')) {
+                    const blob = await zipEntry.async('blob');
+                    images.push({
+                        name: path.split('/').pop(),
+                        blob: blob
+                    });
+                } else if (path.toLowerCase().endsWith('.zip')) {
+                    // Handle nested ZIPs
+                    const nestedBlob = await zipEntry.async('blob');
+                    const nestedFile = new File([nestedBlob], path.split('/').pop());
+                    const nestedImages = await loadImagesFromZip(nestedFile);
+                    images.push(...nestedImages);
+                }
+            }
+            
+            return images;
+        }
+        
+        async function processImage(imageFile) {
+            return new Promise((resolve, reject) => {
                 const img = new Image();
                 const reader = new FileReader();
                 
                 reader.onload = (e) => {
-                    img.onload = () => {
-                        if (processingCancelled) {
-                            reject(new Error('Processing cancelled'));
-                            return;
-                        }
-                        
-                        // Use pooled canvas
-                        const canvas = getCanvas();
-                        const ctx = canvas.getContext('2d', { 
-                            willReadFrequently: true,
-                            alpha: false
-                        });
+                    img.onload = async () => {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = CANVAS_SIZE;
+                        canvas.height = CANVAS_SIZE;
+                        const ctx = canvas.getContext('2d');
                         
                         ctx.drawImage(img, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
                         const imageData = ctx.getImageData(0, 0, CANVAS_SIZE, CANVAS_SIZE);
                         
-                        // Return canvas to pool immediately
-                        releaseCanvas(canvas);
+                        const shapes = await extractShapesFromImage(imageData, imageFile.name);
                         
-                        // Create worker and process
-                        const worker = createWorker();
+                        // Parse filename for metadata
+                        const parsed = parseFilename(imageFile.name);
+                        if (!parsed) {
+                            reject(new Error(`Invalid filename: ${imageFile.name}`));
+                            return;
+                        }
                         
-                        worker.onmessage = (e) => {
-                            terminateWorker(worker);
-                            
-                            if (e.data.error) {
-                                reject(new Error(e.data.error));
-                            } else {
-                                // Now returns array of shapes (red and blue)
-                                resolve(e.data.results);
-                            }
-                        };
-                        
-                        worker.onerror = (err) => {
-                            terminateWorker(worker);
-                            reject(err);
-                        };
-                        
-                        // Send to worker
-                        worker.postMessage({
-                            imageData: imageData,
-                            filename: file.name
-                        }, [imageData.data.buffer]); // Transfer ownership for efficiency
+                        resolve(shapes.map(shape => ({
+                            ...shape,
+                            ...parsed,
+                            filename: imageFile.name
+                        })));
                     };
                     
-                    img.onerror = () => reject(new Error(`Failed to load image: ${file.name}`));
+                    img.onerror = () => reject(new Error(`Failed to load: ${imageFile.name}`));
                     img.src = e.target.result;
                 };
                 
-                reader.onerror = () => reject(new Error(`Failed to read file: ${file.name}`));
-                reader.readAsDataURL(file.blob);
+                reader.onerror = () => reject(new Error(`Failed to read: ${imageFile.name}`));
+                reader.readAsDataURL(imageFile.blob);
             });
         }
         
-        // Process images in parallel batches
-        async function processBatchParallel(files, batchSize) {
-            const results = [];
+        function parseFilename(filename) {
+            const parts = filename.replace('.png', '').split('_');
+            if (parts.length < 2) return null;
             
-            // Calculate optimal batch size based on cores
-            const optimalBatchSize = MAX_PARALLEL_WORKERS * IMAGES_PER_WORKER;
-            const actualBatchSize = Math.min(batchSize, optimalBatchSize);
-            
-            for (let i = 0; i < files.length; i += actualBatchSize) {
-                if (processingCancelled) {
-                    throw new Error('Processing cancelled by user');
-                }
-                
-                const batch = files.slice(i, Math.min(i + actualBatchSize, files.length));
-                
-                // Initialize batch progress
-                initBatch(batch.map(f => f.name));
-                
-                // Process entire batch in parallel
-                const batchPromises = batch.map(async (file, batchIndex) => {
-                    if (processingCancelled) {
-                        updateBatchItem(batchIndex, 'error', 0);
-                        return null;
-                    }
-                    
-                    try {
-                        updateBatchItem(batchIndex, 'processing', 30);
-                        
-                        const result = await processImageWithWorker(file);
-                        
-                        updateBatchItem(batchIndex, 'processing', 80);
-                        
-                        // Small delay to show progress
-                        await new Promise(resolve => setTimeout(resolve, 10));
-                        
-                        updateBatchItem(batchIndex, 'completed', 100);
-                        
-                        return result;
-                    } catch (err) {
-                        console.warn(`Skipping ${file.name}:`, err.message);
-                        updateBatchItem(batchIndex, 'error', 0);
-                        return null;
-                    }
-                });
-                
-                // Wait for all in batch to complete
-                const batchResults = await Promise.all(batchPromises);
-                
-                if (processingCancelled) {
-                    clearBatch();
-                    throw new Error('Processing cancelled by user');
-                }
-                
-                // Flatten results since each image returns array of shapes (red + blue)
-                batchResults.forEach(result => {
-                    if (result !== null) {
-                        if (Array.isArray(result)) {
-                            results.push(...result);
-                        } else {
-                            results.push(result);
-                        }
-                    }
-                });
-                
-                // Update statistics
-                processingStats.processedImages = Math.min(i + batch.length, files.length);
-                
-                const progress = 10 + ((processingStats.processedImages / processingStats.totalImages) * 40);
-                updateProgress(progress, `Processing images (${processingStats.processedImages}/${processingStats.totalImages})`);
-                
-                // Clear batch before next
-                clearBatch();
-                
-                // Minimal delay between batches
-                await new Promise(resolve => setTimeout(resolve, 50));
-            }
-            
-            return results;
-        }
-        
-        // ============================================
-        // AVERAGING ALGORITHM (EXACT from original)
-        // ============================================
-        
-        function averageContours(dataArray) {
-            if (dataArray.length === 0) return null;
-            
-            const normalizedData = dataArray.map(d => ({
-                ...d,
-                normalizedContour: d.contour.map(p => ({
-                    x: p.x - d.centroid.x,
-                    y: p.y - d.centroid.y
-                }))
-            }));
-            
-            const numBins = 360;
-            const bins = Array(numBins).fill(null).map(() => ({ radii: [], points: [] }));
-            
-            normalizedData.forEach(d => {
-                d.normalizedContour.forEach(point => {
-                    const angle = Math.atan2(point.y, point.x);
-                    const radius = Math.sqrt(point.x * point.x + point.y * point.y);
-                    
-                    let binIndex = Math.floor(((angle + Math.PI) / (2 * Math.PI)) * numBins);
-                    binIndex = (binIndex + numBins) % numBins;
-                    
-                    bins[binIndex].radii.push(radius);
-                    bins[binIndex].points.push(point);
-                });
-            });
-            
-            const avgContour = bins.map((bin, i) => {
-                if (bin.radii.length === 0) {
-                    return null;
-                }
-                
-                const avgRadius = bin.radii.reduce((sum, r) => sum + r, 0) / bin.radii.length;
-                const angle = (i / numBins) * 2 * Math.PI - Math.PI;
-                
-                return {
-                    x: avgRadius * Math.cos(angle),
-                    y: avgRadius * Math.sin(angle),
-                    radius: avgRadius,
-                    count: bin.radii.length
-                };
-            });
-            
-            // Fill gaps
-            for (let i = 0; i < avgContour.length; i++) {
-                if (avgContour[i] === null) {
-                    let prevIndex = i - 1;
-                    let nextIndex = i + 1;
-                    
-                    while (prevIndex >= 0 && avgContour[prevIndex] === null) prevIndex--;
-                    while (nextIndex < avgContour.length && avgContour[nextIndex] === null) nextIndex++;
-                    
-                    if (prevIndex < 0) prevIndex = avgContour.length - 1;
-                    if (nextIndex >= avgContour.length) nextIndex = 0;
-                    
-                    const prev = avgContour[prevIndex];
-                    const next = avgContour[nextIndex];
-                    
-                    if (prev && next) {
-                        const angle = (i / numBins) * 2 * Math.PI - Math.PI;
-                        const avgRadius = (prev.radius + next.radius) / 2;
-                        
-                        avgContour[i] = {
-                            x: avgRadius * Math.cos(angle),
-                            y: avgRadius * Math.sin(angle),
-                            radius: avgRadius,
-                            count: 0
-                        };
-                    }
+            // Find frequency
+            let frequency = null;
+            for (const part of parts) {
+                const match = part.match(/(\d+(?:\.\d+)?)hz/i);
+                if (match) {
+                    frequency = parseFloat(match[1]) + 'Hz';
+                    break;
                 }
             }
             
-            const avgCentroid = {
-                x: dataArray.reduce((sum, d) => sum + d.centroid.x, 0) / dataArray.length,
-                y: dataArray.reduce((sum, d) => sum + d.centroid.y, 0) / dataArray.length
-            };
+            if (!frequency) return null;
             
-            const allRadii = dataArray.map(d => d.avgRadius);
-            const meanRadius = allRadii.reduce((sum, r) => sum + r, 0) / allRadii.length;
-            const variance = allRadii.reduce((sum, r) => sum + Math.pow(r - meanRadius, 2), 0) / allRadii.length;
-            const sdRadius = Math.sqrt(variance);
-            
-            const allAreas = dataArray.map(d => d.area);
-            const meanArea = allAreas.reduce((sum, a) => sum + a, 0) / allAreas.length;
-            const areaVariance = allAreas.reduce((sum, a) => sum + Math.pow(a - meanArea, 2), 0) / allAreas.length;
-            const sdArea = Math.sqrt(areaVariance);
-            
-            return {
-                contour: avgContour.filter(p => p !== null),
-                centroid: avgCentroid,
-                meanRadius,
-                sdRadius,
-                meanArea,
-                sdArea,
-                n: dataArray.length,
-                individualData: dataArray
-            };
+            const participant = parts[0];
+            return { participant, frequency };
         }
         
-        // ============================================
-        // DRAWING FUNCTIONS (EXACT from original)
-        // ============================================
-        
-        function drawGrid(ctx, size) {
-            const center = size / 2;
-            const gridColor = '#e5e7eb';
-            const axisColor = '#9ca3af';
-            const labelColor = '#6b7280';
-            
-            ctx.save();
-            ctx.strokeStyle = gridColor;
-            ctx.lineWidth = 1;
-            
-            for (let i = -UNIT_RANGE + 1; i < UNIT_RANGE; i++) {
-                const coord = unitToCanvas(i, i, size);
-                
-                if (i !== 0) {
-                    ctx.beginPath();
-                    ctx.moveTo(0, coord.y);
-                    ctx.lineTo(size, coord.y);
-                    ctx.stroke();
-                    
-                    ctx.beginPath();
-                    ctx.moveTo(coord.x, 0);
-                    ctx.lineTo(coord.x, size);
-                    ctx.stroke();
-                }
-            }
-            
-            ctx.strokeStyle = axisColor;
-            ctx.lineWidth = 2;
-            
-            ctx.beginPath();
-            ctx.moveTo(0, center);
-            ctx.lineTo(size, center);
-            ctx.stroke();
-            
-            ctx.beginPath();
-            ctx.moveTo(center, 0);
-            ctx.lineTo(center, size);
-            ctx.stroke();
-            
-            const labelScale = size / CANVAS_SIZE;
-            ctx.fillStyle = labelColor;
-            ctx.font = `bold ${Math.floor(12 * labelScale)}px sans-serif`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            
-            for (let i = -UNIT_RANGE; i <= UNIT_RANGE; i += 2) {
-                if (i === 0) continue;
-                const coord = unitToCanvas(i, 0, size);
-                const labelY = i === UNIT_RANGE || i === -UNIT_RANGE ? center + 25 * labelScale : center + 20 * labelScale;
-                ctx.fillText(i.toString(), coord.x, labelY);
-            }
-            
-            for (let j = -UNIT_RANGE; j <= UNIT_RANGE; j += 2) {
-                if (j === 0) continue;
-                const coord = unitToCanvas(0, j, size);
-                ctx.textAlign = 'left';
-                ctx.fillText(j.toString(), center + 10 * labelScale, coord.y);
-            }
-            
-            ctx.textAlign = 'right';
-            ctx.fillText('0', center - 8 * labelScale, center + 20 * labelScale);
-            
-            ctx.fillStyle = '#1e40af';
-            ctx.beginPath();
-            ctx.arc(center, center, 5 * labelScale, 0, Math.PI * 2);
-            ctx.fill();
-            
-            ctx.restore();
-        }
-        
-        function drawReferenceCircle(ctx, size) {
-            const center = size / 2;
-            const scale = size / (UNIT_RANGE * 2);
-            const radiusPixels = BACKGROUND_CIRCLE_RADIUS_UNITS * scale;
-            
-            ctx.save();
-            ctx.strokeStyle = '#9ca3af';
-            ctx.lineWidth = 2;
-            ctx.setLineDash([5, 5]);
-            
-            ctx.beginPath();
-            ctx.arc(center, center, radiusPixels, 0, 2 * Math.PI);
-            ctx.stroke();
-            
-            ctx.restore();
-        }
-        
-        function drawIndividualShape(ctx, contour, centroid, color, lineWidth, size) {
-            if (contour.length === 0) return;
-            
-            ctx.save();
-            ctx.strokeStyle = color;
-            ctx.lineWidth = lineWidth;
-            ctx.globalAlpha = 0.3;
-            
-            // Draw as continuous path
-            ctx.beginPath();
-            const firstPoint = unitToCanvas(contour[0].x + centroid.x, contour[0].y + centroid.y, size);
-            ctx.moveTo(firstPoint.x, firstPoint.y);
-            
-            for (let i = 1; i < contour.length; i++) {
-                const point = unitToCanvas(contour[i].x + centroid.x, contour[i].y + centroid.y, size);
-                ctx.lineTo(point.x, point.y);
-            }
-            
-            // Close back to start for smooth closed shape
-            ctx.lineTo(firstPoint.x, firstPoint.y);
-            ctx.stroke();
-            ctx.restore();
-        }
-        
-        function drawAverageShape(ctx, contour, centroid, color, lineWidth, size) {
-            if (contour.length === 0) return;
-            
-            ctx.save();
-            ctx.strokeStyle = color;
-            ctx.lineWidth = lineWidth;
-            ctx.globalAlpha = 1.0;
-            
-            // Draw as continuous path
-            ctx.beginPath();
-            const firstPoint = unitToCanvas(contour[0].x + centroid.x, contour[0].y + centroid.y, size);
-            ctx.moveTo(firstPoint.x, firstPoint.y);
-            
-            for (let i = 1; i < contour.length; i++) {
-                const point = unitToCanvas(contour[i].x + centroid.x, contour[i].y + centroid.y, size);
-                ctx.lineTo(point.x, point.y);
-            }
-            
-            // Close back to start for smooth closed shape
-            ctx.lineTo(firstPoint.x, firstPoint.y);
-            ctx.stroke();
-            ctx.restore();
-        }
-        
-        function drawCentroid(ctx, centroid, color, size) {
-            const point = unitToCanvas(centroid.x, centroid.y, size);
-            
-            ctx.save();
-            ctx.fillStyle = color;
-            ctx.beginPath();
-            ctx.arc(point.x, point.y, 6, 0, 2 * Math.PI);
-            ctx.fill();
-            
-            ctx.strokeStyle = 'white';
-            ctx.lineWidth = 2;
-            ctx.stroke();
-            ctx.restore();
-        }
-        
-        function drawLegend(ctx, redN, blueN, size) {
-            const scale = size / CANVAS_SIZE;
-            const padding = 20 * scale;
-            const lineHeight = 25 * scale;
-            
-            ctx.save();
-            
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-            ctx.strokeStyle = '#d1d5db';
-            ctx.lineWidth = 2;
-            const legendWidth = 180 * scale;
-            const legendHeight = (redN && blueN ? 3 : 2) * lineHeight + padding;
-            
-            ctx.fillRect(size - legendWidth - padding, padding, legendWidth, legendHeight);
-            ctx.strokeRect(size - legendWidth - padding, padding, legendWidth, legendHeight);
-            
-            ctx.font = `bold ${Math.floor(14 * scale)}px sans-serif`;
-            ctx.textAlign = 'left';
-            ctx.textBaseline = 'middle';
-            
-            let yPos = padding + lineHeight / 2;
-            
-            if (redN) {
-                ctx.fillStyle = '#ef4444';
-                ctx.fillRect(size - legendWidth - padding + 10 * scale, yPos - 5 * scale, 30 * scale, 10 * scale);
-                ctx.fillStyle = '#374151';
-                ctx.fillText(`Red (n=${redN})`, size - legendWidth - padding + 50 * scale, yPos);
-                yPos += lineHeight;
-            }
-            
-            if (blueN) {
-                ctx.fillStyle = '#3b82f6';
-                ctx.fillRect(size - legendWidth - padding + 10 * scale, yPos - 5 * scale, 30 * scale, 10 * scale);
-                ctx.fillStyle = '#374151';
-                ctx.fillText(`Blue (n=${blueN})`, size - legendWidth - padding + 50 * scale, yPos);
-            }
-            
-            ctx.restore();
-        }
-        
-        function drawVisualization(frequency, redAvg, blueAvg) {
-            const canvas = document.createElement('canvas');
-            const size = 800;
-            canvas.width = size;
-            canvas.height = size;
-            const ctx = canvas.getContext('2d');
-            
-            ctx.fillStyle = 'white';
-            ctx.fillRect(0, 0, size, size);
-            
-            drawGrid(ctx, size);
-            drawReferenceCircle(ctx, size);
-            
-            if (redAvg) {
-                // Draw individual shapes using their OWN centroids
-                redAvg.individualData.forEach(d => {
-                    drawIndividualShape(ctx, d.contour, d.centroid, '#ef4444', 2, size);
-                });
-                // Draw average shape with averaged centroid
-                drawAverageShape(ctx, redAvg.contour, redAvg.centroid, '#dc2626', 4, size);
-                drawCentroid(ctx, redAvg.centroid, '#dc2626', size);
-            }
-            
-            if (blueAvg) {
-                // Draw individual shapes using their OWN centroids
-                blueAvg.individualData.forEach(d => {
-                    drawIndividualShape(ctx, d.contour, d.centroid, '#3b82f6', 2, size);
-                });
-                // Draw average shape with averaged centroid
-                drawAverageShape(ctx, blueAvg.contour, blueAvg.centroid, '#2563eb', 4, size);
-                drawCentroid(ctx, blueAvg.centroid, '#2563eb', size);
-            }
-            
-            drawLegend(ctx, redAvg?.n, blueAvg?.n, size);
-            
-            ctx.save();
-            ctx.font = 'bold 24px sans-serif';
-            ctx.fillStyle = '#1e40af';
-            ctx.textAlign = 'center';
-            ctx.fillText(`${frequency} Hz`, size / 2, 40);
-            ctx.restore();
-            
-            return canvas;
+        function updateProgress(percentage, message) {
+            document.getElementById('progress-container').classList.remove('hidden');
+            document.getElementById('progress-bar').style.width = `${percentage}%`;
+            document.getElementById('progress-text').textContent = message;
+            document.getElementById('progress-percentage').textContent = `${Math.round(percentage)}%`;
         }
         
         // ============================================
         // MAIN ANALYSIS FUNCTION
         // ============================================
         
-        async function analyzeData(files) {
+        async function analyzeData(inputFiles) {
             try {
-                // Show performance dashboard
-                document.getElementById('performance-dashboard').classList.remove('hidden');
+                updateProgress(0, 'Starting analysis...');
                 
-                // Reset cancellation flag
-                processingCancelled = false;
+                // Extract all images
+                let allImages = [];
                 
-                // Reset processing statistics
-                processingStats = {
-                    startTime: 0,
-                    totalImages: 0,
-                    processedImages: 0,
-                    workersActive: 0
-                };
-                
-                // Disable and hide analyze button, show cancel button
-                const analyzeBtn = document.getElementById('analyze-btn');
-                const cancelBtn = document.getElementById('cancel-btn');
-                
-                analyzeBtn.disabled = true;
-                analyzeBtn.classList.add('hidden');
-                cancelBtn.classList.remove('hidden');
-                
-                updateProgress(5, 'Extracting files from ZIPs (if any)...');
-                
-                // Extract all PNG files from ZIPs (including nested)
-                const allPNGFiles = await processAllFiles(files);
-                
-                if (processingCancelled) {
-                    throw new Error('Processing cancelled by user');
+                for (const file of inputFiles) {
+                    if (file.name.toLowerCase().endsWith('.zip')) {
+                        const images = await loadImagesFromZip(file);
+                        allImages.push(...images);
+                    } else if (file.name.toLowerCase().endsWith('.png')) {
+                        allImages.push({ name: file.name, blob: file });
+                    }
                 }
                 
-                if (allPNGFiles.length === 0) {
-                    showError('No PNG files found. Please upload PNG images or ZIP files containing PNG images.');
-                    return;
+                updateProgress(10, `Found ${allImages.length} images`);
+                
+                // Process all images
+                const processedData = [];
+                
+                for (let i = 0; i < allImages.length; i++) {
+                    try {
+                        const result = await processImage(allImages[i]);
+                        processedData.push(...result);
+                    } catch (error) {
+                        console.warn(`Skipping ${allImages[i].name}:`, error);
+                    }
+                    
+                    const progress = 10 + ((i + 1) / allImages.length * 60);
+                    updateProgress(progress, `Processing image ${i + 1}/${allImages.length}`);
                 }
                 
-                // Initialize processing statistics
-                processingStats.totalImages = allPNGFiles.length;
-                processingStats.processedImages = 0;
-                processingStats.startTime = Date.now();
+                // Organize by frequency
+                const organizedData = {};
+                const frequencies = ['31Hz', '62.5Hz', '125Hz', '250Hz', '500Hz', 
+                                   '1000Hz', '2000Hz', '4000Hz', '8000Hz', '12000Hz', '16000Hz'];
                 
-                updateProgress(10, `Found ${allPNGFiles.length} PNG files. Starting parallel processing...`);
-                
-                // Small delay to show initial message
-                await new Promise(resolve => setTimeout(resolve, 100));
-                
-                FREQUENCIES.forEach(freq => {
-                    participantData[freq] = { red: [], blue: [] };
+                frequencies.forEach(freq => {
+                    organizedData[freq] = { red: [], blue: [] };
                 });
                 
-                // Process images with parallel Web Workers
-                const optimalBatchSize = MAX_PARALLEL_WORKERS * IMAGES_PER_WORKER;
-                const processedData = await processBatchParallel(allPNGFiles, optimalBatchSize);
-                
-                if (processingCancelled) {
-                    throw new Error('Processing cancelled by user');
-                }
-                
-                // Organize processed data
                 processedData.forEach(data => {
-                    if (participantData[data.frequency]) {
-                        participantData[data.frequency][data.phase].push(data);
+                    if (organizedData[data.frequency]) {
+                        organizedData[data.frequency][data.phase].push(data);
                     }
                 });
                 
-                updateProgress(50, 'Computing averages...');
+                updateProgress(75, 'Creating visualizations...');
                 
-                const results = {};
-                FREQUENCIES.forEach(freq => {
-                    if (processingCancelled) {
-                        throw new Error('Processing cancelled by user');
-                    }
-                    
-                    const redData = participantData[freq].red;
-                    const blueData = participantData[freq].blue;
-                    
-                    results[freq] = {
-                        red: redData.length > 0 ? averageContours(redData) : null,
-                        blue: blueData.length > 0 ? averageContours(blueData) : null
-                    };
-                });
+                // Generate visualizations
+                const vizGrid = document.getElementById('viz-grid');
+                vizGrid.innerHTML = '';
                 
-                if (processingCancelled) {
-                    throw new Error('Processing cancelled by user');
-                }
-                
-                updateProgress(70, 'Generating visualizations...');
-                
-                const vizContainer = document.getElementById('visualization-grid');
-                vizContainer.innerHTML = '';
-                
-                let vizCount = 0;
-                FREQUENCIES.forEach(freq => {
-                    if (processingCancelled) {
-                        throw new Error('Processing cancelled by user');
-                    }
+                frequencies.forEach(freq => {
+                    const redShapes = organizedData[freq].red;
+                    const blueShapes = organizedData[freq].blue;
                     
-                    const redAvg = results[freq].red;
-                    const blueAvg = results[freq].blue;
+                    if (redShapes.length === 0 && blueShapes.length === 0) return;
                     
-                    if (!redAvg && !blueAvg) return;
+                    // Calculate averages
+                    const redAvg = redShapes.length > 0 ? calculateAverageShape(redShapes) : null;
+                    const blueAvg = blueShapes.length > 0 ? calculateAverageShape(blueShapes) : null;
                     
-                    const canvas = drawVisualization(freq, redAvg, blueAvg);
+                    // Create canvas
+                    const canvas = document.createElement('canvas');
+                    canvas.width = CANVAS_SIZE;
+                    canvas.height = CANVAS_SIZE;
                     
-                    const wrapper = document.createElement('div');
-                    wrapper.className = 'canvas-container p-4';
+                    drawCompositeVisualization(canvas, freq, redShapes, blueShapes, redAvg, blueAvg);
                     
-                    const canvasWrapper = document.createElement('div');
-                    canvasWrapper.className = 'mb-3';
-                    canvasWrapper.appendChild(canvas);
-                    wrapper.appendChild(canvasWrapper);
+                    // Create container
+                    const container = document.createElement('div');
+                    container.className = 'canvas-container p-4';
+                    container.style.cursor = 'pointer';
                     
-                    const downloadBtn = document.createElement('button');
-                    downloadBtn.className = 'w-full px-4 py-2 rounded-lg font-semibold text-sm bg-gradient-to-r from-purple-500 to-pink-600 text-white hover:from-purple-600 hover:to-pink-700 transition-all';
-                    downloadBtn.textContent = '⬇️ Download Figure';
-                    downloadBtn.onclick = () => {
+                    canvas.style.width = '100%';
+                    canvas.style.height = 'auto';
+                    
+                    container.appendChild(canvas);
+                    
+                    // Add click to download
+                    container.addEventListener('click', () => {
                         const link = document.createElement('a');
-                        link.download = `average_shape_${freq}Hz.png`;
+                        link.download = `composite_${freq}.png`;
                         link.href = canvas.toDataURL();
                         link.click();
-                    };
-                    wrapper.appendChild(downloadBtn);
+                    });
                     
-                    vizContainer.appendChild(wrapper);
-                    
-                    vizCount++;
-                    updateProgress(70 + (vizCount / FREQUENCIES.length) * 20, `Generated ${vizCount}/${FREQUENCIES.length} visualizations...`);
+                    vizGrid.appendChild(container);
                 });
                 
-                updateProgress(90, 'Creating statistics table...');
+                updateProgress(100, 'Analysis complete!');
                 
-                const statsBody = document.getElementById('statistics-body');
-                statsBody.innerHTML = '';
-                
-                FREQUENCIES.forEach(freq => {
-                    const redAvg = results[freq].red;
-                    const blueAvg = results[freq].blue;
-                    
-                    if (redAvg) {
-                        const row = document.createElement('tr');
-                        row.innerHTML = `
-                            <td class="px-4 py-3 text-sm font-medium">${freq} Hz</td>
-                            <td class="px-4 py-3 text-sm"><span class="inline-block w-3 h-3 rounded-full bg-red-500 mr-2"></span>Red (In-Phase)</td>
-                            <td class="px-4 py-3 text-sm">${redAvg.n}</td>
-                            <td class="px-4 py-3 text-sm font-mono">${redAvg.meanRadius.toFixed(3)}</td>
-                            <td class="px-4 py-3 text-sm font-mono">${redAvg.sdRadius.toFixed(3)}</td>
-                            <td class="px-4 py-3 text-sm font-mono">${redAvg.meanArea.toFixed(3)}</td>
-                            <td class="px-4 py-3 text-sm font-mono">${redAvg.sdArea.toFixed(3)}</td>
-                        `;
-                        statsBody.appendChild(row);
-                    }
-                    
-                    if (blueAvg) {
-                        const row = document.createElement('tr');
-                        row.innerHTML = `
-                            <td class="px-4 py-3 text-sm font-medium">${freq} Hz</td>
-                            <td class="px-4 py-3 text-sm"><span class="inline-block w-3 h-3 rounded-full bg-blue-500 mr-2"></span>Blue (Out-of-Phase)</td>
-                            <td class="px-4 py-3 text-sm">${blueAvg.n}</td>
-                            <td class="px-4 py-3 text-sm font-mono">${blueAvg.meanRadius.toFixed(3)}</td>
-                            <td class="px-4 py-3 text-sm font-mono">${blueAvg.sdRadius.toFixed(3)}</td>
-                            <td class="px-4 py-3 text-sm font-mono">${blueAvg.meanArea.toFixed(3)}</td>
-                            <td class="px-4 py-3 text-sm font-mono">${blueAvg.sdArea.toFixed(3)}</td>
-                        `;
-                        statsBody.appendChild(row);
-                    }
-                });
-                
-                const summaryContent = document.getElementById('summary-content');
-                summaryContent.innerHTML = '';
-                
-                const totalParticipants = new Set();
-                const totalImages = processedData.length;
-                let frequenciesWithData = 0;
-                
-                FREQUENCIES.forEach(freq => {
-                    const redData = participantData[freq].red;
-                    const blueData = participantData[freq].blue;
-                    
-                    if (redData.length > 0 || blueData.length > 0) {
-                        frequenciesWithData++;
-                    }
-                    
-                    redData.forEach(d => totalParticipants.add(d.participant));
-                    blueData.forEach(d => totalParticipants.add(d.participant));
-                });
-                
-                // Calculate processing time
-                const processingTime = ((Date.now() - processingStats.startTime) / 1000).toFixed(1);
-                const avgSpeed = (totalImages / processingTime).toFixed(1);
-                
-                summaryContent.innerHTML = `
-                    <div class="bg-blue-50 p-4 rounded-lg border-2 border-blue-200">
-                        <div class="text-3xl font-bold text-blue-700">${totalParticipants.size}</div>
-                        <div class="text-sm text-gray-600 font-semibold">Unique Participants</div>
-                    </div>
-                    <div class="bg-emerald-50 p-4 rounded-lg border-2 border-emerald-200">
-                        <div class="text-3xl font-bold text-emerald-700">${totalImages}</div>
-                        <div class="text-sm text-gray-600 font-semibold">Total Images Processed</div>
-                    </div>
-                    <div class="bg-purple-50 p-4 rounded-lg border-2 border-purple-200">
-                        <div class="text-3xl font-bold text-purple-700">${frequenciesWithData}</div>
-                        <div class="text-sm text-gray-600 font-semibold">Frequencies with Data</div>
-                    </div>
-                    <div class="bg-amber-50 p-4 rounded-lg border-2 border-amber-200 col-span-1 md:col-span-3">
-                        <div class="text-2xl font-bold text-amber-700">⚡ ${processingTime}s total • ${avgSpeed} img/s average • ${MAX_PARALLEL_WORKERS} workers</div>
-                        <div class="text-sm text-gray-600 font-semibold">Processing Performance</div>
-                    </div>
-                `;
-                
-                updateProgress(100, `Complete! Processed ${totalImages} images in ${processingTime}s`);
-                
-                document.getElementById('data-summary').classList.remove('hidden');
+                // Show results
                 document.getElementById('visualization-container').classList.remove('hidden');
-                document.getElementById('statistics-container').classList.remove('hidden');
                 
                 setTimeout(() => {
-                    updateProgress(0, '');
-                    document.getElementById('performance-dashboard').classList.add('hidden');
-                }, 3000);
+                    document.getElementById('progress-container').classList.add('hidden');
+                }, 2000);
                 
-            } catch (err) {
-                if (err.message === 'Processing cancelled by user') {
-                    const progressContainer = document.getElementById('progress-container');
-                    progressContainer.classList.remove('hidden');
-                    updateProgress(0, '❌ Processing cancelled by user');
-                    
-                    setTimeout(() => {
-                        progressContainer.classList.add('hidden');
-                        document.getElementById('performance-dashboard').classList.add('hidden');
-                    }, 2000);
-                } else {
-                    showError(err.message);
-                    console.error('Analysis error:', err);
-                }
-            } finally {
-                // Cleanup all active workers
-                activeWorkers.forEach(worker => worker.terminate());
-                activeWorkers.clear();
-                updateWorkersMetric();
-                
-                const cancelBtn = document.getElementById('cancel-btn');
-                const analyzeBtn = document.getElementById('analyze-btn');
-                
-                cancelBtn.disabled = false;
-                cancelBtn.innerHTML = '⛔ Cancel Processing';
-                cancelBtn.classList.remove('from-gray-400', 'to-gray-500', 'cursor-not-allowed');
-                cancelBtn.classList.add('from-red-500', 'to-red-600', 'hover:from-red-600', 'hover:to-red-700');
-                
-                cancelBtn.classList.add('hidden');
-                analyzeBtn.classList.remove('hidden');
-                
-                const files = document.getElementById('image-upload').files;
-                if (files && files.length > 0) {
-                    analyzeBtn.disabled = false;
-                }
+            } catch (error) {
+                console.error('Analysis error:', error);
+                alert(`Error: ${error.message}`);
             }
         }
-        
-        // ============================================
-        // EVENT LISTENERS
-        // ============================================
-        
-        document.getElementById('image-upload').addEventListener('change', function(e) {
-            const files = Array.from(e.target.files);
-            const fileList = document.getElementById('file-list');
-            const analyzeBtn = document.getElementById('analyze-btn');
-            
-            if (files.length > 0) {
-                const pngCount = files.filter(f => f.name.toLowerCase().endsWith('.png')).length;
-                const zipCount = files.filter(f => f.name.toLowerCase().endsWith('.zip')).length;
-                
-                fileList.innerHTML = `
-                    <div class="p-4 bg-blue-50 rounded-lg border-2 border-blue-200">
-                        <p class="font-semibold text-blue-800">
-                            ✅ ${files.length} file(s) selected
-                            ${pngCount > 0 ? `(${pngCount} PNG${pngCount > 1 ? 's' : ''})` : ''}
-                            ${zipCount > 0 ? `(${zipCount} ZIP${zipCount > 1 ? 's' : ''})` : ''}
-                        </p>
-                        <p class="text-sm text-blue-600 mt-1">Click "Analyze & Generate Visualizations" to process with parallel Web Workers!</p>
-                    </div>
-                `;
-                
-                analyzeBtn.disabled = false;
-            } else {
-                fileList.innerHTML = '';
-                analyzeBtn.disabled = true;
-            }
-        });
-        
-        document.getElementById('analyze-btn').addEventListener('click', async function() {
-            const files = Array.from(document.getElementById('image-upload').files);
-            
-            if (files.length === 0) {
-                showError('Please select at least one file');
-                return;
-            }
-            
-            await analyzeData(files);
-        });
-        
-        document.getElementById('cancel-btn').addEventListener('click', function() {
-            processingCancelled = true;
-            
-            // Terminate all active workers immediately
-            activeWorkers.forEach(worker => worker.terminate());
-            activeWorkers.clear();
-            updateWorkersMetric();
-            
-            this.disabled = true;
-            this.innerHTML = '⏳ Cancelling...';
-            this.classList.remove('from-red-500', 'to-red-600', 'hover:from-red-600', 'hover:to-red-700');
-            this.classList.add('from-gray-400', 'to-gray-500', 'cursor-not-allowed');
-        });
-        
-        // Cleanup on page unload
-        window.addEventListener('beforeunload', () => {
-            activeWorkers.forEach(worker => worker.terminate());
-            URL.revokeObjectURL(workerBlobUrl);
-        });
-        
-        console.log(`Sound Object Analyzer Ultra Optimized initialized`);
-        console.log(`CPU Cores: ${CPU_CORES}`);
-        console.log(`Max Parallel Workers: ${MAX_PARALLEL_WORKERS}`);
-        console.log(`Images per Worker: ${IMAGES_PER_WORKER}`);
-        console.log(`Optimal Batch Size: ${MAX_PARALLEL_WORKERS * IMAGES_PER_WORKER}`);
     </script>
 </body>
 </html>
