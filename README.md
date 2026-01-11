@@ -1,801 +1,359 @@
-# Sound Object Visualization Research Tool - README
+# Sound Object Visualization Research Tool
 
-## Overview
+## Technical Documentation
 
-This is a web-based drawing application designed for acoustic research at UCI Hearing & Speech Lab. Participants draw shapes representing their perception of sound objects across different frequencies, and the tool automatically calculates geometric properties using advanced adaptive algorithms.
-
-**Version:** 2.2 (Curve-Aware Area + Balanced Closure Detection)  
-**Last Updated:** November 2025
-
----
-
-## Recent Updates (Version 2.2)
-
-### 🔥 Critical Fixes (November 2025)
-
-#### 1. **Curve-Aware Area Calculation** ✅
-**Problem Fixed:** Previous version calculated area by checking distance to individual path points, causing gaps in curved sections and missing portions of crescents, horseshoes, and concave shapes.
-
-**Solution:** 
-- Added `distanceToSegment()` helper function
-- Now calculates distance to **line segments** between consecutive points
-- Properly accounts for the curved nature of drawn paths
-- Ensures no gaps in area calculation for any shape type
-
-**Impact:**
-- ✅ Accurate area for crescent shapes
-- ✅ Accurate area for horseshoe shapes
-- ✅ Accurate area for all concave/curved paths
-- ✅ No more "missing" curved sections
-
-#### 2. **Balanced Closure Detection** ✅
-**Problem Fixed:** Previous version was too lenient (closed almost everything) OR too strict (rejected human-drawn circles with minor imperfections).
-
-**Solution:** Three-strategy system that balances human imperfection with clear C-shape rejection:
-
-**Strategy 1: Very Tight Closure (< 2% gap)**
-- Always closed regardless of rotation
-- Handles nearly-perfect circles
-
-**Strategy 2: Balanced (< 10% gap + ≥ 70% rotation)** ⭐ Most Common
-- Allows decent gap if there's good rotation
-- Perfect for human-drawn shapes with slightly messy endings
-- **Sweet spot** for intentionally-closed shapes
-
-**Strategy 3: Excellent Rotation (< 15% gap + ≥ 85% rotation)**
-- Compensates larger gap with excellent rotation
-- Handles almost-complete circles with shaky endings
-
-**What Gets Filtered (Area = 0):**
-- ✅ C-shapes: 15-25% gap, 50-65% rotation → OPEN
-- ✅ Single lines: 40-100% gap, 0-30% rotation → OPEN
-- ✅ Half circles: 30-50% gap, 40-50% rotation → OPEN
-
-**What Passes (Calculate Area):**
-- ✅ Perfect circles: < 2% gap → CLOSED
-- ✅ Human circles with small gap: 3-8% gap, 75% rotation → CLOSED
-- ✅ Messy but complete circles: 8-12% gap, 85% rotation → CLOSED
-- ✅ Nearly closed horseshoes: 5-10% gap, 72% rotation → CLOSED
-
-**Impact:**
-- ✅ C-shapes correctly return area = 0
-- ✅ Single lines correctly return area = 0
-- ✅ Open horseshoes (with gaps) correctly return area = 0
-- ✅ Closed horseshoes correctly calculate interior + outline area
-- ✅ Human-drawn circles with 10-15% gap tolerance still recognized as closed
-
-#### 3. **Open Shape Handling** ✅
-**Problem Fixed:** Open shapes (C, single lines) were calculating "ribbon area" of the stroke itself instead of returning 0.
-
-**Solution:**
-```javascript
-if (shape is open) {
-    return { area: 0, x: avgX, y: avgY };
-}
-```
-
-**Impact:**
-- ✅ Single straight line → Area = 0
-- ✅ Single curved line → Area = 0
-- ✅ C-shape (open curve) → Area = 0
-- ✅ Only truly closed/enclosed shapes calculate area > 0
+**Version:** 2.2  
+**Institution:** UCI Hearing & Speech Lab  
+**Application:** Acoustic Perception Research  
+**Last Revised:** November 2025
 
 ---
 
-## Features
+## 1. Introduction
 
-### Core Functionality
-- ✅ Multi-frequency drawing canvas (7 frequencies: 125Hz - 8kHz)
-- ✅ Variable brush sizes (1-20px)
-- ✅ 7-color palette for shape differentiation
-- ✅ Background image upload capability
-- ✅ Undo/Redo functionality per frequency
-- ✅ Real-time geometric analysis
+This document describes the computational methods implemented in the Sound Object Visualization Research Tool, a web-based application designed to capture and analyze graphical representations of auditory spatial perception. The tool enables participants to draw shapes corresponding to their perception of sound objects at various frequencies, with subsequent geometric analysis of the resulting forms.
 
-### Export Capabilities
-- ✅ Download drawings as ZIP file (PNG format)
-- ✅ Export analysis data as CSV
-- ✅ **Google Drive export** - Upload ZIP directly to Drive folder
-- ✅ **Google Sheets export** - Send analysis data to spreadsheet
-
-### Advanced Algorithms (v2.2)
-- ✅ **Curve-Aware Area Calculation** - Accurate for all curved shapes
-- ✅ **Pixel-Based Area with Line Segment Distance** - No gaps in curves
-- ✅ **Interior Filling for Closed Shapes** - Includes enclosed area
-- ✅ **Balanced Closure Detection** - Filters C-shapes, allows human imperfection
-- ✅ **Open Shape Detection** - Returns area = 0 for open shapes
-- ✅ **Adaptive Centroid Calculation** - Guarantees interior placement
+The primary outputs are area measurements and centroid coordinates for each drawn shape, computed using algorithms selected to address the particular challenges of hand-drawn input data.
 
 ---
 
-## Methodology
+## 2. System Specifications
 
-### 1. Area Calculation (Curve-Aware Pixel-Based)
+### 2.1 Canvas and Coordinate System
 
-The tool uses a **curve-aware pixel-based area calculation** that accurately measures the visual footprint of drawn shapes, including all curved portions.
+The drawing canvas employs a Cartesian coordinate system with the following parameters:
 
-#### Key Features:
+| Parameter | Value | Rationale |
+|-----------|-------|-----------|
+| Canvas dimensions | 600 × 600 pixels | Provides sufficient resolution for detailed drawings while maintaining computational efficiency |
+| Coordinate range | −5 to +5 units (both axes) | Symmetric range centered on origin facilitates interpretation of lateralization data |
+| Scale factor | 60 pixels per unit | Integer conversion simplifies coordinate transformations |
+| Grid resolution | 0.1 units per grid line | One grid square equals 1.0 square units, enabling visual estimation of area |
+| Reference circle | 3-unit radius | Provides consistent spatial reference across trials |
 
-**✅ Curve-Aware Calculation** (NEW in v2.2)
-- Calculates distance to **line segments** between points
-- No gaps in curved sections
-- Handles crescents, horseshoes, and all concave shapes
-- Accurately follows the drawn curve
+### 2.2 Brush System
 
-**✅ Visual Accuracy**
-- Measures what participants see on canvas
-- Includes brush thickness in all calculations
-- Handles overlapping strokes correctly
+Drawing implements a circular brush with configurable diameter:
 
-**✅ Interior Filling for Closed Shapes**
-- Automatically detects closed/nearly-closed shapes
-- Includes interior area for enclosed regions
-- **No visual filling** - drawing appears as strokes only
-- Filling is purely computational
+| Brush size (pixels) | Radius (units) | Calculation |
+|---------------------|----------------|-------------|
+| 1 | 0.008 | (1 / 60) / 2 |
+| 5 | 0.042 | (5 / 60) / 2 |
+| 10 | 0.083 | (10 / 60) / 2 |
+| 20 | 0.167 | (20 / 60) / 2 |
 
-**✅ Handles All Shape Types**
-- Closed shapes: Outline + Interior
-- Open shapes (C, lines): Area = 0
-- Nearly-closed: Intelligent closure detection
-
-#### Algorithm:
-
-```
-For each shape:
-  1. Detect if shape is closed (balanced multi-strategy)
-  2. If OPEN → Return area = 0 (NEW in v2.2)
-  3. If CLOSED:
-     a. Create grid over bounding box (resolution: 0.05-0.1 units)
-     b. For each grid cell:
-        - Check distance to LINE SEGMENTS (not just points) ← NEW
-        - If within brush radius of any segment → Mark as painted
-        - If inside polygon boundary → Mark as painted
-     c. Count painted cells
-     d. Area = painted cells × (resolution²)
-     e. Subtract 80% of outline thickness (post-processing)
-```
-
-#### Distance to Line Segment (NEW):
-
-```javascript
-function distanceToSegment(px, py, x1, y1, x2, y2) {
-  // Find closest point on segment [p1, p2] to point (px, py)
-  dx = x2 - x1
-  dy = y2 - y1
-  t = clamp(dot(p - p1, p2 - p1) / length²(p2 - p1), 0, 1)
-  closest = p1 + t × (p2 - p1)
-  return distance(p, closest)
-}
-```
-
-**Why This Matters:**
-- ❌ **OLD:** Checked distance to individual points → Gaps in curves
-- ✅ **NEW:** Checks distance to line segments → No gaps, accurate curves
-
-**Computational Complexity:** O(n × m) where:
-- n = number of segments in path
-- m = number of grid cells
-
-**Typical Performance:** 10-30ms per shape
+Brush thickness is incorporated into all area calculations to ensure that measured area reflects the visual footprint of the drawn shape.
 
 ---
 
-### 2. Closure Detection (Balanced Three-Strategy System)
+## 3. Area Calculation Methodology
 
-The tool uses **THREE strategies** to intelligently determine if a shape should be treated as closed, balancing rejection of open C-shapes with forgiveness for human drawing imperfection.
+### 3.1 Rationale for Pixel-Based Approach
 
-#### Strategy 1: Very Tight Closure ⭐
-**Check:** Is the gap extremely small?
+Traditional polygon area formulas (e.g., the shoelace formula) compute the area enclosed by a path's centerline, ignoring stroke width. For hand-drawn shapes where the visual appearance includes substantial brush thickness, this approach underestimates the perceived area. Additionally, shapes drawn as outlines (traced boundaries rather than filled regions) would yield minimal area despite enclosing substantial visual space.
 
-```javascript
-gapPercentage < 2.0%  // Gap as % of total path length
-```
+The implemented method addresses these limitations through pixel-based sampling that measures the actual visual footprint, including brush thickness and interior regions of closed shapes.
 
-**How it works:**
-- Gap must be < 2% of total path length
-- Always closed regardless of rotation
-- Handles nearly-perfect circles
+### 3.2 Curve-Aware Distance Calculation
 
-**Example:**
-```
-Circle: 10 units path length
-Gap: 0.15 units
-0.15 / 10 = 1.5% < 2% → CLOSED ✓
-```
+A critical refinement in version 2.2 addresses the handling of curved path segments. Earlier implementations computed the distance from each sampling point to discrete path vertices, which produced systematic errors in curved regions where the spacing between vertices exceeded the sampling resolution.
 
-#### Strategy 2: Balanced (Human-Friendly) ⭐⭐⭐
-**Check:** Good gap + good rotation?
-
-```javascript
-gapPercentage < 10.0% 
-AND rotationPercentage ≥ 70.0%
-```
-
-**How it works:**
-- Gap must be < 10% of path length
-- Must have ≥ 70% of full rotation (252° out of 360°)
-- **Most common strategy for human-drawn shapes**
-- Sweet spot for intentionally-closed shapes
-
-**Example:**
-```
-Imperfect circle:
-  Path: 12 units, Gap: 1.0 units → 8.3% ✓
-  Rotation: 340° → 94% ✓
-  BOTH pass → CLOSED ✓
-```
-
-**What this catches:**
-- Human-drawn circles with slightly messy endings
-- Horseshoes intended to be closed
-- Slightly imperfect loops
-
-**What this filters:**
-- C-shapes (typically 15-25% gap, 50-65% rotation) → OPEN
-- Half circles → OPEN
-- Single lines → OPEN
-
-#### Strategy 3: Excellent Rotation ⭐⭐
-**Check:** Excellent rotation with larger gap?
-
-```javascript
-gapPercentage < 15.0%
-AND rotationPercentage ≥ 85.0%
-```
-
-**How it works:**
-- Allows up to 15% gap IF rotation is excellent (≥85%)
-- Compensates larger gap with nearly-complete rotation
-- Catches almost-complete circles with shaky endings
-
-**Example:**
-```
-Messy circle:
-  Path: 10 units, Gap: 1.4 units → 14% ✓
-  Rotation: 350° → 97% ✓
-  Nearly complete → CLOSED ✓
-```
-
-#### Decision Flow:
+The current implementation computes distance to line segments connecting consecutive path points:
 
 ```
-Input: Shape with N points
-   ↓
-Strategy 1: Very tight closure?
-   Gap < 2% of path?
-   ├─ YES → CLOSED ✓
-   └─ NO → Try Strategy 2
-   
-Strategy 2: Balanced?
-   Gap < 10% AND Rotation ≥ 70%?
-   ├─ YES → CLOSED ✓
-   └─ NO → Try Strategy 3
-   
-Strategy 3: Excellent rotation?
-   Gap < 15% AND Rotation ≥ 85%?
-   ├─ YES → CLOSED ✓
-   └─ NO → OPEN (area = 0)
-   
-Result: 
-  - CLOSED → Calculate interior + outline area
-  - OPEN → Return area = 0
+For point P and segment defined by endpoints A and B:
+    
+    Let v = B - A (segment vector)
+    Let w = P - A (vector from A to query point)
+    
+    Compute projection parameter:
+        t = (w · v) / (v · v)
+        t = clamp(t, 0, 1)
+    
+    Closest point on segment:
+        C = A + t × v
+    
+    Distance = ||P - C||
 ```
 
-#### Comparison Table:
+This formulation ensures that curved regions are properly captured, eliminating gaps that previously occurred in crescent, horseshoe, and other concave shapes.
 
-| Shape Type | Typical Gap | Typical Rotation | Result |
-|------------|-------------|------------------|---------|
-| Perfect circle | < 2% | 95-100% | ✅ CLOSED (Strategy 1) |
-| Human circle | 3-8% | 75-95% | ✅ CLOSED (Strategy 2) |
-| Messy circle | 8-12% | 85-95% | ✅ CLOSED (Strategy 2/3) |
-| Closed horseshoe | 5-10% | 72-80% | ✅ CLOSED (Strategy 2) |
-| C-shape | 15-25% | 50-65% | ❌ OPEN |
-| Half circle | 30-50% | 40-50% | ❌ OPEN |
-| Single line | 40-100% | 0-30% | ❌ OPEN |
+### 3.3 Algorithm Description
 
-**Performance:** O(n) - Linear in number of points, ~1-3ms
+The area calculation proceeds as follows:
+
+1. **Closure detection**: Determine whether the shape should be treated as closed (see Section 4).
+
+2. **Open shape handling**: If the shape is classified as open, return area = 0. This prevents the computation of "ribbon area" (the stroke itself) for shapes that do not enclose a region, such as C-shapes or single lines.
+
+3. **Grid generation**: Construct a sampling grid over the shape's bounding box. Grid resolution is adaptive based on brush size:
+   - Brush radius < 0.05 units: resolution = 0.05 units
+   - Brush radius < 0.1 units: resolution = 0.075 units
+   - Otherwise: resolution = 0.1 units
+
+4. **Pixel classification**: For each grid cell, determine membership by two criteria:
+   - **Stroke proximity**: The cell center lies within brush radius of any line segment in the path (using the curve-aware distance calculation).
+   - **Interior containment**: For closed shapes, the cell center lies within the polygon boundary (determined by ray casting).
+
+5. **Area computation**: Sum the areas of all classified cells:
+   ```
+   Area = (number of marked cells) × (resolution²)
+   ```
+
+6. **Outline correction**: For closed shapes, subtract 80% of the estimated outline area to avoid double-counting the stroke in interior calculations:
+   ```
+   Corrected Area = Raw Area − (0.80 × Outline Area)
+   ```
+
+### 3.4 Interior Detection via Ray Casting
+
+Point-in-polygon testing employs the standard ray casting algorithm:
+
+```
+Count intersections between a horizontal ray from point P 
+and all edges of the polygon.
+
+If intersection count is odd: P is inside.
+If intersection count is even: P is outside.
+```
+
+This method handles self-intersecting paths and concave shapes without special cases.
+
+### 3.5 Computational Complexity
+
+The algorithm exhibits O(n × m) complexity where n is the number of path segments and m is the number of grid cells. For typical shapes, execution time ranges from 10–30 ms per shape, which is negligible relative to user interaction time.
 
 ---
 
-### 3. Centroid Calculation (Adaptive System)
+## 4. Closure Detection Methodology
 
-The tool uses an **adaptive centroid system** that guarantees the centroid is always inside the drawn shape using the geometric median (medoid) approach.
+### 4.1 Problem Statement
 
-#### Decision Tree:
+Determining whether a hand-drawn shape represents a closed region presents a classification challenge. Strict geometric criteria (requiring exact endpoint coincidence) reject nearly all human-drawn shapes due to motor variability. Conversely, overly permissive criteria incorrectly classify intentionally open shapes (C-shapes, arcs, single strokes) as closed.
 
+The implemented solution employs a three-strategy system that balances sensitivity to intentional closure against tolerance for natural drawing imprecision.
+
+### 4.2 Metrics
+
+Two metrics characterize potential closure:
+
+**Gap percentage**: The Euclidean distance between path endpoints, expressed as a percentage of total path length.
 ```
-Input Shape
-    ↓
-Analyze: Aspect Ratio, Density Variance, Brush Size
-    ↓
-├─ Aspect Ratio > 3.0 (Very Elongated)?
-│  └─ YES → Skeleton-Constrained (follows spine)
-│
-├─ Density Variance > 0.5 (Varied Thickness)?
-│  └─ YES → Weighted Medoid (emphasizes dense areas)
-│
-├─ Brush Size > 15px?
-│  └─ YES → Brush-Aware Medoid (visual mass)
-│
-└─ Otherwise
-   └─ Basic Medoid (standard geometric median)
+Gap % = (||endpoint_first − endpoint_last|| / total_path_length) × 100
 ```
 
-#### Centroid Methods:
-
-**A. Basic Medoid (Geometric Median)**
-- **Algorithm:** Weiszfeld's iterative algorithm
-- **What it does:** Finds point that minimizes sum of distances to all drawn points
-- **Guarantee:** Always inside or on the shape
-- **Iterations:** Typically 5-15 (< 2ms)
-- **Mathematical formula:**
-  ```
-  At each iteration:
-  x_new = Σ(x_i / d_i) / Σ(1 / d_i)
-  y_new = Σ(y_i / d_i) / Σ(1 / d_i)
-  where d_i = distance from current centroid to point i
-  ```
-
-**B. Visual Center (Density-Weighted)**
-- **When:** Concave or irregular shapes
-- **Method:** 
-  1. Create density map by checking grid points
-  2. Weight points by inverse distance to path
-  3. Calculate weighted average
-- **Effect:** Centroid follows visual "center of mass"
-- **Speed:** 2-4ms
-
-**C. Skeleton-Constrained**
-- **When:** Very elongated shapes (aspect ratio > 3.0)
-- **Method:**
-  1. Sample points along path
-  2. Calculate medoid of sampled points
-- **Effect:** Centroid follows the "spine" of snake-like curves
-- **Speed:** 2-3ms
-
-**D. Brush-Aware**
-- **When:** Large brush sizes (>15px)
-- **Method:**
-  1. Weight points by local density (neighbors within brush radius)
-  2. Calculate weighted medoid
-- **Effect:** Accounts for visual mass of thick strokes
-- **Speed:** 3-5ms
-
-#### Why Medoid vs Geometric Centroid?
-
-**Traditional Geometric Centroid (NOT USED):**
+**Rotation percentage**: The cumulative angular displacement around the path, expressed as a percentage of 360°.
 ```
-C-Shape: (    )     Horseshoe: U
-           X  ← Outside!      X  ← Outside!
+Rotation % = (Σ|Δθᵢ| / 360°) × 100
 ```
 
-**Medoid (USED):**
-```
-C-Shape: ( • )      Horseshoe: U
-         Inside! ✓            • ← Inside! ✓
-```
+where Δθᵢ is the angular change between consecutive segments.
 
-The medoid is guaranteed to be on or inside the drawn shape, making it more meaningful for perceptual analysis.
+### 4.3 Classification Strategies
+
+A shape is classified as closed if it satisfies any of the following criteria:
+
+**Strategy 1 (Tight closure)**:
+```
+Gap percentage < 2.0%
+```
+Rationale: Very small gaps relative to path length indicate intentional closure regardless of rotation. This captures nearly-perfect circles and loops.
+
+**Strategy 2 (Balanced)**:
+```
+Gap percentage < 10.0% AND Rotation percentage ≥ 70.0%
+```
+Rationale: Moderate gaps are acceptable when accompanied by substantial rotation (at least 252° of the full circle). This represents the most common case for human-drawn closed shapes with imperfect endpoints.
+
+**Strategy 3 (High rotation compensation)**:
+```
+Gap percentage < 15.0% AND Rotation percentage ≥ 85.0%
+```
+Rationale: Larger gaps may result from motor noise at the end of an otherwise complete rotation. Near-complete rotation (306°+) compensates for larger endpoint discrepancy.
+
+### 4.4 Classification Outcomes by Shape Type
+
+| Shape | Typical Gap | Typical Rotation | Classification |
+|-------|-------------|------------------|----------------|
+| Precise circle | < 2% | 95–100% | Closed (Strategy 1) |
+| Hand-drawn circle | 3–8% | 75–95% | Closed (Strategy 2) |
+| Imprecise loop | 8–12% | 85–95% | Closed (Strategy 2 or 3) |
+| Closed horseshoe | 5–10% | 72–80% | Closed (Strategy 2) |
+| C-shape | 15–25% | 50–65% | Open |
+| Half circle | 30–50% | 40–50% | Open |
+| Single line | 40–100% | 0–30% | Open |
+
+### 4.5 Minimum Point Threshold
+
+Shapes with fewer than 10 recorded points are automatically classified as open. This threshold prevents spurious closure detection from very brief strokes where gap and rotation metrics are unreliable.
 
 ---
 
-## Technical Specifications
+## 5. Centroid Calculation Methodology
 
-### Canvas & Coordinate System
-- **Canvas Size:** 600×600 pixels
-- **Unit System:** -5 to +5 on both axes (10 units range)
-- **Scale Factor:** 60 pixels per unit
-- **Grid Resolution:** 0.1 units (one grid square = 1.0 area units)
-- **Background Circle:** 3-unit radius reference
+### 5.1 Rationale for Geometric Median Approach
 
-### Brush System
-- **Brush Range:** 1-20 pixels
-- **Brush in Units:** brushSize / 60 / 2 (radius in units)
-- **Examples:**
-  - 5px brush = 0.042 unit radius
-  - 10px brush = 0.083 unit radius
-  - 20px brush = 0.167 unit radius
+The conventional geometric centroid (arithmetic mean of coordinates) can fall outside the boundary of concave shapes. For a C-shape or horseshoe, the centroid often lies in empty space, rendering it meaningless as a representative location.
 
-### Performance
-- **Area Calculation:** 10-30ms per shape
-- **Centroid Calculation:** 1-5ms per shape
-- **Closure Detection:** 1-3ms per shape
-- **Total Analysis:** < 50ms per shape
-- **Canvas Redraw:** < 100ms for typical session
+The geometric median (also termed the medoid or Fermat point) minimizes the sum of distances to all points in the shape and is guaranteed to lie within the convex hull of those points. For non-convex shapes, this property ensures the representative point falls on or within the drawn region.
+
+### 5.2 Weiszfeld's Algorithm
+
+The geometric median is computed iteratively using Weiszfeld's algorithm:
+
+```
+Initialize: x₀, y₀ = arithmetic mean of path points
+
+Iterate until convergence (tolerance = 0.001 units):
+    
+    numerator_x = Σ(xᵢ / dᵢ)
+    numerator_y = Σ(yᵢ / dᵢ)
+    denominator = Σ(1 / dᵢ)
+    
+    where dᵢ = distance from current estimate to point i
+    
+    x_new = numerator_x / denominator
+    y_new = numerator_y / denominator
+
+Output: (x_final, y_final)
+```
+
+Convergence typically occurs within 5–15 iterations, requiring less than 5 ms per shape.
+
+### 5.3 Adaptive Method Selection
+
+The system selects among four centroid variants based on shape characteristics:
+
+**Basic medoid**: Default method using Weiszfeld's algorithm on all path points.
+
+**Skeleton-constrained medoid**: Applied when aspect ratio exceeds 3.0 (highly elongated shapes). The medoid is computed from uniformly sampled points along the path rather than all recorded points, preventing clustering artifacts from variable drawing speed.
+
+**Density-weighted medoid**: Applied when point density variance exceeds 0.5 (indicating regions of varied stroke concentration). Points are weighted by inverse distance to path, emphasizing regions of greater visual mass.
+
+**Brush-aware medoid**: Applied when brush size exceeds 15 pixels. Points are weighted by local neighbor density within the brush radius, accounting for the visual mass distribution of thick strokes.
+
+### 5.4 Selection Criteria
+
+```
+If aspect_ratio > 3.0:
+    Use skeleton-constrained medoid
+Else if density_variance > 0.5:
+    Use density-weighted medoid  
+Else if brush_size > 15:
+    Use brush-aware medoid
+Else:
+    Use basic medoid
+```
 
 ---
 
-## Data Export
+## 6. Data Export Specifications
 
-### CSV Export Format
-```csv
+### 6.1 CSV Format
+
+Exported analysis data follows this structure:
+
+```
 Participant,Frequency (Hz),Shape Number,Area (sq units),Centroid X,Centroid Y
 P-001,125,1,12.4567,1.2345,-0.5678
 P-001,125,2,8.9012,0.5432,2.1098
 ```
 
-### ZIP Export
-- One PNG image per frequency with drawings
-- Image includes: grid, axes, shapes, centroid markers
-- Filename format: `ParticipantName_FrequencyHz.png`
-- ZIP filename: `ParticipantName_##.zip` (## = chronological count)
+Area is expressed in square coordinate units (where one grid square = 1.0 square units). Centroid coordinates are in the same unit system as the drawing canvas (range −5 to +5).
 
-### Google Drive Export
-- Uploads ZIP file directly to Drive folder
-- Requires Google Apps Script Web App URL
-- Same ZIP structure as manual download
+### 6.2 Image Export
 
-### Google Sheets Export
-- Sends analysis data directly to spreadsheet
-- Requires Google Apps Script Web App URL
-- Same CSV structure as manual export
+PNG images are exported at native canvas resolution (600 × 600 pixels) with the following elements rendered: coordinate grid, axis labels, all drawn shapes with original colors, and centroid markers.
+
+Filename convention: `ParticipantID_FrequencyHz.png`
+
+### 6.3 Archive Format
+
+Complete exports are packaged as ZIP archives containing one PNG per frequency. Archive naming follows: `ParticipantID_##.zip` where ## is a chronological counter ensuring unique filenames.
 
 ---
 
-## Installation & Setup
+## 7. Algorithm Parameters
 
-### Local Use (No Server Required)
-1. Open `index_balanced_closure.html` in modern browser
-2. Start drawing - all data stored locally
-3. Export when ready
+The following parameters may be adjusted for specific research requirements:
 
-### Browser Compatibility
-- ✅ Chrome/Edge (Recommended)
-- ✅ Firefox
-- ✅ Safari
-- ✅ Mobile browsers (iOS Safari, Chrome Mobile)
+### 7.1 Area Calculation
 
-### Progressive Web App (PWA)
-- Can be installed on mobile devices
-- Works offline after first load
-- App-like experience on tablets
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| Base resolution | 0.1 units | Sampling grid cell size |
+| Fine resolution | 0.05 units | Used for small brush sizes |
+| Outline subtraction | 80% | Proportion of outline area subtracted from closed shapes |
 
-### Google Integration Setup (Optional)
+### 7.2 Closure Detection
 
-#### For Google Sheets Export:
-1. Create Google Apps Script (see documentation)
-2. Deploy as Web App
-3. Copy Web App URL
-4. Paste into tool
-5. Export to Sheets
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| Strategy 1 gap threshold | 2.0% | Maximum gap for unconditional closure |
+| Strategy 2 gap threshold | 10.0% | Maximum gap with rotation requirement |
+| Strategy 2 rotation threshold | 70.0% | Minimum rotation for Strategy 2 |
+| Strategy 3 gap threshold | 15.0% | Maximum gap with high rotation |
+| Strategy 3 rotation threshold | 85.0% | Minimum rotation for Strategy 3 |
+| Minimum points | 10 | Below this, shapes are always classified as open |
 
-#### For Google Drive Export:
-1. Create Google Apps Script with Drive access
-2. Deploy as Web App
-3. Copy Web App URL
-4. Paste into tool
-5. Export to Drive
+### 7.3 Centroid Calculation
 
----
-
-## Research Workflow
-
-### Typical Session:
-1. Enter participant ID
-2. (Optional) Upload background image
-3. Select frequency
-4. Draw shape(s) representing sound perception
-5. Switch frequencies as needed
-6. Review analysis results
-7. Export data (CSV + ZIP)
-
-### Data Quality Checks:
-- ✅ Verify shape is detected as closed/open correctly
-- ✅ Check area is reasonable (1 grid square = 1.0 units)
-- ✅ Confirm centroid is inside shape
-- ✅ Review console logs for debugging (F12)
-
-### Best Practices:
-- **Clear instructions:** Explain to participants what "enclosing area" means
-- **Practice trials:** Let participants practice before data collection
-- **Consistent brush size:** Recommend using same brush size per frequency
-- **Save frequently:** Export data after each participant
-- **Backup exports:** Save both CSV and ZIP files
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| Convergence tolerance | 0.001 units | Stopping criterion for Weiszfeld iteration |
+| Maximum iterations | 50 | Safety limit to prevent non-convergence |
+| Elongation threshold | 3.0 | Aspect ratio triggering skeleton-constrained method |
+| Density variance threshold | 0.5 | Variance triggering density-weighted method |
+| Large brush threshold | 15 pixels | Brush size triggering brush-aware method |
 
 ---
 
-## Privacy & Security
+## 8. Methodological Considerations for Research Use
 
-### Data Storage
-- **Local only:** All data stored in browser localStorage
-- **No server:** No data transmitted during drawing
-- **Explicit export:** Data only sent when user clicks export
-- **No tracking:** No analytics or user tracking
+### 8.1 Reproducibility
 
-### Export Privacy
-- **Google Sheets/Drive:** Data sent only to your Apps Script
-- **CSV/ZIP:** Data downloaded to your device only
-- **Participant IDs:** You control naming convention
+All algorithms are deterministic. Given identical input (recorded path coordinates, brush size, and parameter settings), outputs are exactly reproducible. No random number generation is employed in any calculation.
 
----
+### 8.2 Validation
 
-## Algorithm Parameters (Tunable)
+The curve-aware distance calculation eliminates systematic underestimation of area in curved regions that affected earlier versions. The three-strategy closure detection correctly classifies intentionally open shapes (C-shapes, lines, arcs) as open while accommodating the endpoint imprecision characteristic of hand-drawn closed shapes.
 
-### Area Calculation
+### 8.3 Limitations
 
-```javascript
-// Pixel sampling resolution
-resolution = 0.1  // Grid cell size (units)
-                  // 0.1 = good balance
-                  // 0.05 = higher accuracy, 4× slower
-                  // 0.15 = faster, less accurate
+1. Brush size is constant within each stroke. Variable-pressure input is not supported.
+2. Self-intersecting paths are handled correctly for area calculation but may produce interior regions that the ray casting algorithm classifies inconsistently depending on intersection topology.
+3. Very sparse shapes (< 10 points) are excluded from closure analysis due to unreliable metrics.
+4. The 80% outline subtraction factor is empirically determined and may require adjustment for specific brush sizes or drawing styles.
 
-// Adaptive resolution based on brush size
-if (brushRadius < 0.05) resolution = 0.05;
-else if (brushRadius < 0.1) resolution = 0.075;
-else resolution = 0.1;
+### 8.4 Suggested Methodology Description for Publications
 
-// Outline subtraction (closed shapes only)
-outlineSubtraction = 0.80  // Subtract 80% of outline area
-```
-
-### Closure Detection (v2.2)
-
-```javascript
-// Strategy 1: Very tight closure
-tightGapThreshold = 2.0%  // % of path length
-
-// Strategy 2: Balanced (most common)
-balancedGapThreshold = 10.0%     // % of path length
-balancedRotationThreshold = 70.0% // % of full rotation
-
-// Strategy 3: Excellent rotation
-largeGapThreshold = 15.0%        // % of path length
-excellentRotationThreshold = 85.0% // % of full rotation
-
-// Minimum points
-minPoints = 10  // Shapes with < 10 points always open
-```
-
-### Centroid Calculation
-
-```javascript
-// Elongation threshold
-aspectRatio > 3.0  // Use skeleton-constrained
-
-// Density variance threshold
-densityVariance > 0.5  // Use weighted medoid
-
-// Large brush threshold
-brushSize > 15  // Use brush-aware
-
-// Convergence tolerance
-tolerance = 0.001  // Units
-
-// Max iterations
-maxIterations = 50  // Safety limit
-```
+> Participants drew shapes on a 10 × 10 unit Cartesian grid (600 × 600 pixels; 60 pixels per unit) using circular brushes with configurable diameter (1–20 pixels, corresponding to 0.017–0.333 unit diameters). Shape areas were computed using a curve-aware pixel-based method with adaptive grid resolution (0.05–0.1 units) that measured the visual footprint of strokes by computing minimum distance to line segments between consecutive path points. For closed shapes, interior areas were determined via ray casting point-in-polygon testing, with 80% outline subtraction applied to prevent double-counting of stroke area.
+>
+> Shape closure was determined by a three-strategy classification system based on endpoint gap (as percentage of path length) and cumulative rotation (as percentage of 360°). Shapes meeting any of the following criteria were classified as closed: (1) gap < 2%; (2) gap < 10% and rotation ≥ 70%; or (3) gap < 15% and rotation ≥ 85%. Open shapes (failing all criteria) returned area = 0.
+>
+> Centroid coordinates were computed using the geometric median via Weiszfeld's iterative algorithm (convergence tolerance: 0.001 units), which guarantees placement within the drawn region. The algorithm automatically selected among four variants based on shape characteristics: basic medoid (default), skeleton-constrained (aspect ratio > 3.0), density-weighted (density variance > 0.5), or brush-aware (brush size > 15 pixels).
 
 ---
 
-## Research Considerations
+## 9. References
 
-### Reproducibility
+Weiszfeld, E. (1937). Sur le point pour lequel la somme des distances de n points donnés est minimum. *Tohoku Mathematical Journal*, 43, 355–386.
 
-- All algorithms are **deterministic** - same input → same output
-- Random number generation **not used**
-- Timestamps are only for file naming, not calculations
-- Export counter ensures unique filenames
-
-### Data Quality
-
-**Area Accuracy:**
-- ✅ Curve-aware (no gaps in curved sections)
-- ✅ Matches visual appearance (pixel-based)
-- ✅ Includes brush thickness
-- ✅ Handles overlaps correctly (counts each pixel once)
-- ✅ Fills closed shapes appropriately
-- ✅ Returns 0 for open shapes (C, lines)
-- ✅ One grid square = 1.0 area units
-
-**Centroid Accuracy:**
-- ✅ **Interior guarantee:** 100% (always inside shape)
-- ✅ **Convergence:** Typically 5-15 iterations (< 0.001 unit accuracy)
-- ✅ **Stability:** Highly stable, insensitive to point ordering
-- ✅ **Adaptive:** Chooses optimal method per shape
-
-**Closure Detection:**
-- ✅ Three independent strategies
-- ✅ Accommodates natural drawing behavior (10-15% gap tolerance)
-- ✅ Filters out clearly open shapes (C, lines, half-circles)
-- ✅ Reduces artifacts from minor gaps
-
-### Limitations
-
-1. **Brush size variation:** Tool uses constant brush size per shape (changeable between shapes)
-2. **Overlapping strokes:** Pixel-based method handles correctly (counts each pixel once)
-3. **Self-intersections:** All methods handle gracefully
-4. **Very sparse shapes:** (< 10 points) Always treated as open
-5. **Large gaps:** Gaps > 15% of path length typically not closed (except if rotation > 85%)
-
-### Recommendations for Publications
-
-**Methodology Description:**
-
-> "Participants drew shapes on a 10×10 unit grid (600×600 pixel canvas, 60 pixels per unit) using variable brush sizes (1-20 pixels, corresponding to 0.017-0.333 unit diameters). Areas were calculated using a curve-aware pixel-based method (adaptive grid resolution: 0.05-0.1 units) that measured the visual footprint of strokes by calculating distance to line segments between consecutive points, including brush thickness. For closed shapes, interior areas were computed using point-in-polygon ray casting with 80% outline subtraction post-processing. Shape closure was determined using a balanced three-strategy system: Strategy 1 (gap <2% of path length), Strategy 2 (gap <10% AND rotation ≥70%), or Strategy 3 (gap <15% AND rotation ≥85%). Open shapes (C-shapes, single lines) returned area = 0. Centroids were calculated using an adaptive geometric median (medoid) algorithm with Weiszfeld's iterative method (convergence tolerance: 0.001 units), which guarantees interior placement. The system automatically selected between four centroid variants based on shape characteristics: elongation (aspect ratio >3.0), density distribution, and brush size (>15 pixels)."
-
-**Key Points to Report:**
-- Grid size: 10×10 units (600×600 pixels)
-- One grid square = 1.0 area units  
-- Pixel sampling resolution: 0.05-0.1 units (adaptive)
-- Curve-aware distance calculation (line segments)
-- Balanced closure detection (three strategies)
-- Open shapes return area = 0
-- Centroid guaranteed interior
-- Brush thickness included in area
-
-**Citations:**
-- Weiszfeld, E. (1937). "Sur le point pour lequel la somme des distances de n points donnés est minimum"
-- Point-in-polygon: Computational Geometry (standard ray casting algorithm)
-- Distance to line segment: Computational Geometry (projection-based algorithm)
+Preparata, F. P., & Shamos, M. I. (1985). *Computational Geometry: An Introduction*. Springer-Verlag. [Point-in-polygon algorithms, distance to line segment computation]
 
 ---
 
-## Troubleshooting
+## 10. Version History
 
-### Issue: Area seems too small
-**Check:**
-- Is shape detected as closed?
-- What brush size was used?
-- Expected: 1 grid square = 1.0 area units
-
-**Solution:** 
-- Ensure shape is properly closed (gap < 10%, rotation > 70%)
-- Verify brush size is appropriate
-- Check console logs for closure detection results
-
-### Issue: Area is 0 for shape that should be closed
-**Check:**
-- Open browser console (F12)
-- Look for closure detection output
-- Check gap percentage and rotation percentage
-
-**Solution:**
-- If gap > 15%: Try to close gap more carefully
-- If rotation < 70%: Shape may be too open (C-shape)
-- Verify shape completes a full loop
-
-### Issue: C-shape has non-zero area
-**This should not happen in v2.2!**
-- Check console logs for closure detection
-- Verify you're using `index_balanced_closure.html`
-- Report as bug if observed
-
-### Issue: Area missing curved sections
-**This should not happen in v2.2!**
-- Curve-aware algorithm should handle all curves
-- Check console for errors
-- Report as bug if observed
-
-### Issue: Centroid outside shape
-**This should never happen!**
-- Report as bug if observed
-- Medoid algorithm guarantees interior placement
-
-### Issue: Export fails
-**Check:**
-- Is participant name entered?
-- Are there any drawings?
-- Is Google Apps Script URL correct?
-
-**Solution:**
-- Enter participant name before export
-- Draw at least one shape
-- Verify URL ends with `/exec`
+| Version | Date | Changes |
+|---------|------|---------|
+| 2.2 | November 2025 | Curve-aware distance calculation; three-strategy closure detection; explicit area = 0 for open shapes |
+| 2.1 | November 2025 | Pixel-based area with interior filling; multi-criteria closure detection |
+| 2.0 | November 2025 | Adaptive area and centroid calculation methods |
+| 1.5 | November 2025 | Google Drive and Sheets integration |
+| 1.0 | 2024 | Initial release |
 
 ---
 
-## Version History
-
-### Version 2.2 (November 2025) - Curve-Aware + Balanced Closure 🔥
-- ✅ **Curve-aware area calculation** - Distance to line segments (not points)
-- ✅ **No gaps in curved sections** - Accurate for crescents, horseshoes
-- ✅ **Balanced closure detection** - Three-strategy system
-- ✅ **Open shape filtering** - C-shapes and lines return area = 0
-- ✅ **Human imperfection tolerance** - 10-15% gap tolerance with good rotation
-- ✅ **Improved logging** - Clear console output for debugging
-
-### Version 2.1 (November 2025) - Pixel-Based Area + Improved Closure
-- ✅ **Pixel-based area calculation** for all shapes
-- ✅ **Interior filling** for closed shapes (computational only)
-- ✅ **Multi-criteria closure detection** (3 criteria)
-- ✅ Point-in-polygon ray casting for interior detection
-- ✅ Accurate area for traced outlines
-- ✅ Improved handling of nearly-closed shapes
-
-### Version 2.0 (November 2025) - Adaptive Algorithms
-- ✅ Added adaptive area calculation (4 methods)
-- ✅ Added adaptive centroid calculation (4 methods)
-- ✅ Automatic method selection based on shape properties
-- ✅ Guaranteed interior centroid placement
-
-### Version 1.5 (November 2025) - Google Integration
-- ✅ Added Google Drive export
-- ✅ Added Google Sheets export
-- ✅ Convex hull for open shapes
-
-### Version 1.0 (2024) - Initial Release
-- ✅ Multi-frequency drawing
-- ✅ Basic geometric analysis
-- ✅ CSV and ZIP export
-
----
-
-## Key Algorithm Improvements Summary
-
-### Area Calculation Evolution:
-
-**v1.0:** Shoelace formula (polygon only)
-- ❌ Ignored brush thickness
-- ❌ Traced outlines = minimal area
-- ❌ No interior filling
-
-**v2.0:** Adaptive (4 methods)
-- ⚠️ Complex decision tree
-- ⚠️ Still had issues with traced outlines
-
-**v2.1:** Pixel-based with interior fill
-- ✅ Includes brush thickness
-- ✅ Fills closed shapes
-- ⚠️ Gaps in curved sections (checked distance to points)
-
-**v2.2:** Curve-aware pixel-based (current) 🔥
-- ✅ **No gaps in curves** (checks distance to line segments)
-- ✅ Always accurate for all curve types
-- ✅ Accurate for crescents, horseshoes, concave shapes
-- ✅ Includes brush thickness
-- ✅ Fills closed shapes
-- ✅ One method, consistently excellent
-
-### Closure Detection Evolution:
-
-**v1.0-2.0:** Single criterion
-- Endpoint distance ≤ 2× avg segment
-- ❌ Too strict, missed nearly-closed shapes
-
-**v2.1:** Multi-criteria
-- Three criteria: gap, rotation, bounding box
-- ⚠️ Too lenient, closed almost everything
-
-**v2.2:** Balanced three-strategy (current) 🔥
-- ✅ **Filters C-shapes** (typically 15-25% gap, 50-65% rotation)
-- ✅ **Allows human imperfection** (10-15% gap tolerance)
-- ✅ **Clear decision boundaries** per strategy
-- ✅ **Open shapes return area = 0** explicitly
-
----
-
-## Credits
-
-**Developed for:** UCI Hearing & Speech Lab  
-**Research Focus:** Sound Object Perception  
-**Algorithm Design:** Adaptive Systems (2025)  
-**Current Version:** 2.2 (Curve-Aware + Balanced Closure)
-
----
-
-## Contact & Support
-
-For technical questions about the algorithms or implementation, refer to the detailed documentation:
-- `README_UPDATED.md` - This file (v2.2 updates)
-- `improved_closure_detection.md` - Multi-criteria closure system
-- `filled_area_fix.md` - Interior filling explanation
-- `adaptive_centroid_implementation_summary.md` - Centroid methods
-
-For research questions, contact UCI Hearing & Speech Lab.
-
----
-
-## License
-
-Research tool for academic use at UCI Hearing & Speech Lab.
-
----
-
-**Last Updated:** November 2025  
-**Tool Version:** 2.2 (Curve-Aware + Balanced Closure)  
-**File:** `index_balanced_closure.html`  
-**Area Calculation:** Curve-aware pixel-based with interior fill  
-**Closure Detection:** Balanced three-strategy system  
-**Centroid Calculation:** Adaptive medoid (4 variants)  
-**Open Shape Handling:** Explicit area = 0 return
+**UCI Hearing & Speech Lab**  
+**Sound Object Visualization Research Tool v2.2**
